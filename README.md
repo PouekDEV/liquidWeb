@@ -1,7 +1,7 @@
 # liquidWeb
 
 > [!WARNING]
-> I'm not responsible for any damage to your equipment. If anything get stuck your best option is to turn off your pc and disconnect it from power for a minute or two before restarting it.
+> I'm not responsible for any damage to your equipment. If anything get stuck your best option is to turn off your PC and disconnect it from power for a minute or two before restarting it.
 
 A simple program based on [AIOLCDUnchained](https://github.com/brokenmass/AIOLCDUnchained) by [brokenmass](https://github.com/brokenmass).
 
