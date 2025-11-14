@@ -1,0 +1,18 @@
+{
+  "name": "integration-runner",
+  "version": "1.0.0",
+  "description": "NZXT CAM inner integration browser imitation",
+  "main": "window.js",
+  "dependencies": {
+    "electron": "^39.2.0"
+  },
+  "devDependencies": {
+    "@nzxt/web-integrations-types": "^0.4.1"
+  },
+  "scripts": {
+    "start": "electron . --width=640 --height=640 --url=https://www.pouekdev.one/nzxt-integration/ --configuration=0",
+    "configure": "electron . --width=640 --height=640 --url=https://www.pouekdev.one/nzxt-integration/ --configuration=1"
+  },
+  "author": "PouekDEV",
+  "license": "MIT"
+}

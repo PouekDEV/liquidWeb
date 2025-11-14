@@ -53,7 +53,6 @@ SUPPORTED_DEVICES = [
         "name": "Kraken Z3",
         "resolution": Resolution(320, 320),
         "renderingMode": RENDERING_MODE.RGBA,
-        "image": "http://127.0.0.1:30003/images/z3.png",
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
@@ -63,7 +62,6 @@ SUPPORTED_DEVICES = [
         "name": "Kraken Elite",
         "resolution": Resolution(640, 640),
         "renderingMode": RENDERING_MODE.Q565,
-        "image": "http://127.0.0.1:30003/images/2023elite.png",
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
@@ -73,7 +71,6 @@ SUPPORTED_DEVICES = [
         "name": "Kraken Elite v2",
         "resolution": Resolution(640, 640),
         "renderingMode": RENDERING_MODE.Q565,
-        "image": "http://127.0.0.1:30003/images/2023elite.png",
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
@@ -106,11 +103,9 @@ class KrakenLCD:
             if len(info) > 0:
                 self.hidInfo = info[0]
                 self.name = dev["name"]
-
                 self.pid = dev["pid"]
                 self.resolution: Resolution = dev["resolution"]
                 self.renderingMode = dev["renderingMode"]
-                self.image = dev["image"]
                 self.totalBuckets = dev["totalBuckets"]
                 self.supportsLiquidMode = dev["supportsLiquidMode"]
                 self.maxBucketSize = dev["maxBucketSize"]
@@ -160,8 +155,7 @@ class KrakenLCD:
                 "width": self.resolution.width,
                 "height": self.resolution.height,
             },
-            "renderingMode": self.renderingMode,
-            "image": self.image,
+            "renderingMode": self.renderingMode
         }
 
     def read(self, length=_HID_READ_LENGTH, timeout=_DEFAULT_TIMEOUT_MS):
