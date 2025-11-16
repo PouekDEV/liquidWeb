@@ -1,4 +1,4 @@
-const { contextBridge } = require("electron")
+const { contextBridge } = require("electron");
 
 window.addEventListener("DOMContentLoaded", () => {
     const script = document.createElement("script");
@@ -8,12 +8,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
 let data = {};
 
-function getData(){
-    return data;
-}
-
 contextBridge.exposeInMainWorld("nzxtAPI", {
-    getData: () => getData()
+    getData: () => { return data; }
 });
 
 setInterval(() => {
