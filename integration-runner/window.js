@@ -15,8 +15,10 @@ if(framerate > 35 && !configuration){
 }
 console.log("Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url);
 
-app.commandLine.appendSwitch("high-dpi-support", "1");
-app.commandLine.appendSwitch("force-device-scale-factor", "1");
+if(!configuration){
+    app.commandLine.appendSwitch("high-dpi-support", "1");
+    app.commandLine.appendSwitch("force-device-scale-factor", "1");
+}
 
 function createWS(url){
     let ws;

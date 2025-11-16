@@ -7,10 +7,9 @@ import queue
 import time
 import io
 
-lcd = driver.KrakenLCD()
+lcd = driver.KrakenLCD(50, 90)
 lcd.setupStream()
 frameBuffer = queue.Queue(maxsize=10)
-rotation = 90
 
 async def handle_connection(websocket):
     print("Connected to integration runner")
@@ -19,7 +18,7 @@ async def handle_connection(websocket):
         async for message in websocket:
             try:
                 startTime = time.time()
-                img = Image.open(io.BytesIO(message)).rotate(rotation)
+                img = Image.open(io.BytesIO(message))
                 frameBuffer.put((lcd.imageToFrame(img, adaptive=True), startTime, time.time() - startTime))
             except Exception as e:
                 print(f"Encountered an error while getting a response: {e}")

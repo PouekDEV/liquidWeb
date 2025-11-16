@@ -7,7 +7,6 @@ from typing import Tuple
 from collections import namedtuple
 from enum import Enum, IntEnum
 from PIL import Image, ImageDraw
-from q565 import encode_img
 from utils import debounce, timing, debugUsb
 import q565_rust
 
@@ -97,7 +96,7 @@ class KrakenLCD:
 
     cache = None
 
-    def __init__(self):
+    def __init__(self, brightness, orientation):
         for dev in SUPPORTED_DEVICES:
             info = hid.enumerate(_NZXT_VID, dev["pid"])
             if len(info) > 0:
@@ -114,7 +113,9 @@ class KrakenLCD:
                     (self.resolution.width * self.resolution.height * 4),
                 )
                 self.bucketsToUse = max(self.totalBuckets, 2)
-                print()
+                self.brightness = brightness
+                self.orientation = orientation
+                print(f"Driver detected {dev}")
                 break
         else:
             raise Exception("No supported device found")
@@ -145,7 +146,7 @@ class KrakenLCD:
         maskCanvas.ellipse([(0, 0), self.resolution], fill=(255, 255, 255, 255))
 
         self.write([0x36, 0x3])
-        self.setBrightness(100)
+        self.setBrightness(self.brightness)
 
     def getInfo(self):
         return {
@@ -222,6 +223,14 @@ class KrakenLCD:
 
     def parseStats(self, packet):
         return {"liquid": packet[15] + packet[16] / 10, "pump": packet[19]}
+
+    def parseLiquidTemperature(self, packet):
+        return packet[15] + packet[16] / 10
+
+    @timing
+    def getLiquidTemperature(self):
+        self.write([0x74, 0x1])
+        return self.readUntil({b"\x75\x01": self.parseLiquidTemperature})
 
     @timing
     def getStats(self):
@@ -416,6 +425,7 @@ class KrakenLCD:
 
     @timing
     def imageToFrame(self, img: Image.Image, adaptive=False) -> bytes:
+        img = img.rotate(self.orientation)
         # cut the image to circular frame. This reduce gif size by ~20%
         img = Image.composite(img, self.black, self.mask)
 
@@ -434,7 +444,7 @@ class KrakenLCD:
             img_bytes = img.tobytes()
             return q565_rust.py_encode(
                 width, height, img_bytes
-            )  # encode_img(img.convert("RGB"))
+            )
         else:
             byteio = BytesIO()
 
