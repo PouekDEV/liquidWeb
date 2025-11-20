@@ -222,15 +222,7 @@ class KrakenLCD:
         )
 
     def parseStats(self, packet):
-        return {"liquid": packet[15] + packet[16] / 10, "pump": packet[19]}
-
-    def parseLiquidTemperature(self, packet):
-        return packet[15] + packet[16] / 10
-
-    @timing
-    def getLiquidTemperature(self):
-        self.write([0x74, 0x1])
-        return self.readUntil({b"\x75\x01": self.parseLiquidTemperature})
+        return {"liquid": packet[15] + packet[16] / 10, "pump_duty": packet[19], "pump_speed": packet[18] << 8 | packet[17], "fan_speed": packet[24] << 8 | packet[23], "fan_duty": packet[25]}
 
     @timing
     def getStats(self):

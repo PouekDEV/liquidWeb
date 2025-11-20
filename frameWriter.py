@@ -10,6 +10,7 @@ import io
 lcd = driver.KrakenLCD(50, 90)
 lcd.setupStream()
 frameBuffer = queue.Queue(maxsize=10)
+PORT = 54217
 
 async def handle_connection(websocket):
     print("Connected to integration runner")
@@ -28,11 +29,7 @@ async def handle_connection(websocket):
 frameWriter = FrameWriter(frameBuffer, lcd)
 frameWriter.start()
 
-print("Frame writer started")
-
 async def main():
-    print("Starting WebSocket server on ws://localhost:8765")
-    async with websockets.serve(handle_connection, "127.0.0.1", 8765):
+    print(f"Starting WebSocket server on ws://localhost:{PORT}")
+    async with websockets.serve(handle_connection, "127.0.0.1", PORT):
         await asyncio.Future()
-
-asyncio.run(main())
