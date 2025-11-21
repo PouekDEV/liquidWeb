@@ -1,46 +1,50 @@
-from workers import FrameWriter
-from PIL import Image
-import websockets
-import asyncio
-import driver
-import queue
 import time
-import io
+import driver
+import time
+import queue
+from threading import Thread
+from utils import FPS, debug
 
-lcd = None
-frameBuffer = queue.Queue(maxsize=10)
-PORT = 54217
+class FrameWriter(Thread):
+    def __init__(self, frameBuffer: queue.Queue, lcd: driver.KrakenLCD):
+        Thread.__init__(self, name="FrameWriter")
+        self.daemon = True
+        self.shouldStop = False
+        self.frameBuffer = frameBuffer
+        self.frameCount = 0
+        self.lcd = lcd
+        self.lastDataTime = 0
+        self.fps = FPS()
 
-async def handle_connection(websocket):
-    print("Connected to integration runner")
-    startTime = time.time()
-    try:
-        async for message in websocket:
-            #if frameBuffer.full():
-            #    print("Queue is full!!!")
-            #else:
-            #    print(f"Queue: {frameBuffer.qsize()}")
-            try:
-                startTime = time.time()
-                img = Image.open(io.BytesIO(message))
-                frameBuffer.put((lcd.imageToFrame(img, adaptive=True), startTime, time.time() - startTime))
-            except Exception as e:
-                print(f"Encountered an error while getting a response: {e}")
-    except Exception as e:
-        print(f"Encountered an error during connection: {e}")
+    def run(self):
+        debug("Frame writer started")
+        while not self.shouldStop:
+            if self.frameBuffer.empty():
+                time.sleep(0.001)
+                continue
 
-async def run():
-    print(f"Starting WebSocket server on ws://localhost:{PORT}")
-    async with websockets.serve(handle_connection, "127.0.0.1", PORT):
-        await asyncio.Future()
+            self.onFrame()
 
-def main(LCD):
-    global lcd
-    lcd = LCD
-    lcd.setupStream()
-    frameWriter = FrameWriter(frameBuffer, lcd)
-    frameWriter.start()
-    asyncio.run(run())
+    def onFrame(self):
+        (frame, rawTime, gifTime) = self.frameBuffer.get()
 
-if __name__ == "__main__":
-    main(driver.KrakenLCD(50, 90))
+        startTime = time.time()
+        try:
+            self.lcd.writeFrame(frame)
+            writeTime = time.time() - startTime
+            freeTime = rawTime - writeTime
+
+            debug(
+                "FPS: {:4.1f} - Frame {:5} (size: {:7}) - raw {:6.2f}ms, gif {:6.2f}ms, write {:6.2f}ms, free time {: 7.2f}ms ".format(
+                    self.fps(),
+                    self.frameCount,
+                    len(frame),
+                    rawTime * 1000,
+                    gifTime * 1000,
+                    writeTime * 1000,
+                    freeTime * 1000,
+                )
+            )
+            self.frameCount += 1
+        except Exception:
+            pass

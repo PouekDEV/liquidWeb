@@ -1,5 +1,5 @@
 import driver
-import frameWriter
+import frameReceiver
 import hardwareInfo
 from threading import Thread
 from time import sleep
@@ -11,7 +11,7 @@ class FrameWriterRunner(Thread):
         super().__init__(name="FrameWriterRunner")
         self.daemon = True
     def run(self):
-        frameWriter.main(LCD)
+        frameReceiver.main(LCD)
 
 class HardwareInfoRunner(Thread):
     def __init__(self):

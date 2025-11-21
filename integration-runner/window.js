@@ -51,7 +51,7 @@ function createWS(url){
     function connect(){
         ws = new WebSocket(url);
         ws.on("open", () => {
-            console.log("Connected to the frame writing server");
+            console.log("Connected to the frame receiving server");
         });
         ws.on("close", () => {
             console.log("Server closed. Retrying in 5 seconds...");
