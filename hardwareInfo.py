@@ -1,8 +1,11 @@
+# When fully migrating everything to Linux use psutil and hwmon
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from HardwareMonitor.Hardware import *
 from HardwareMonitor.Util import *
 from threading import Thread
 from time import sleep
+import psutil
 import json
 
 PORT = 54218
@@ -10,7 +13,7 @@ formatted = {
     "cpus": [],
     "gpus": [],
     "ram": {
-        "totalSize": 0,
+        "totalSize": psutil.virtual_memory().total,
         "inUse": 0,
         "modules": []
     },
@@ -21,13 +24,15 @@ formatted = {
 computer = OpenComputer(cpu=True, gpu=True, memory=True)
 
 class InfoUpdater(Thread):
-    def __init__(self, computer, formatted):
+    def __init__(self, computer, formatted, LCD):
         Thread.__init__(self, name="InfoUpdater")
         self.daemon = True
         self.computer = computer
         self.formatted = formatted
-        self.minFanSpeed = 0
+        self.minFanSpeed = -1
         self.maxFanSpeed = 0
+        self.LCD = LCD
+        self.kraken = {"liquid": 0, "pump_duty": 0, "pump_speed": 0, "fan_speed": 0, "fan_duty": 0}
         self.cpuTemp = {
             "name": "",
             "manufacturer": "",
@@ -69,23 +74,16 @@ class InfoUpdater(Thread):
             sleep(1)
             self.computer.Update()
             data = ToBuiltinTypes(self.computer.Hardware)
+            try:
+                self.kraken = self.LCD.getStats()
+            except Exception:
+                continue
             hardwareList = json.loads(json.dumps(data))
             self.formatted["cpus"] = []
             self.formatted["gpus"] = []
             for hardware in hardwareList:
                 cpu = self.cpuTemp.copy()
                 gpu = self.gpuTemp.copy()
-                if hardware["Name"] == "Total Memory":
-                    sensors = hardware["Sensors"]
-                    used = 0
-                    available = 0
-                    for sensor in sensors:
-                        if sensor["Name"] == "Memory Used":
-                            used = sensor["Value"]
-                        if sensor["Name"] == "Memory Available":
-                            available = sensor["Value"]
-                    self.formatted["ram"]["inUse"] = used
-                    self.formatted["ram"]["totalSize"] = used + available
                 if "Cpu" in hardware["HardwareType"]:
                     cpu["name"] = hardware["Name"]
                     average = 0
@@ -121,11 +119,11 @@ class InfoUpdater(Thread):
                             continue
                     average = average / cpu["numCores"]
                     cpu["numThreads"] += cpu["numCores"]
-                    fanSpeed = -1 # To be set from the driver
+                    fanSpeed = self.kraken["fan_speed"]
                     cpu["fanSpeed"] = fanSpeed
                     if fanSpeed > self.maxFanSpeed:
                         self.maxFanSpeed = fanSpeed
-                    if fanSpeed < self.minFanSpeed:
+                    if fanSpeed < self.minFanSpeed or self.minFanSpeed == -1:
                         self.minFanSpeed = fanSpeed
                     cpu["minFanSpeed"] = self.minFanSpeed
                     cpu["maxFanSpeed"] = self.maxFanSpeed
@@ -155,7 +153,8 @@ class InfoUpdater(Thread):
                             continue
                     self.formatted["gpus"].append(gpu)
             self.formatted["gpus"].reverse()
-            self.formatted["kraken"]["liquidTemperature"] = -1 # To be set from the driver
+            self.formatted["kraken"]["liquidTemperature"] = self.kraken["liquid"]
+            self.formatted["ram"]["inUse"] = psutil.virtual_memory().used
 
 class WebServer(Thread):
     class Handler(BaseHTTPRequestHandler):
@@ -178,16 +177,15 @@ class WebServer(Thread):
         print(f"Serving on http://localhost:{PORT}")
         server.serve_forever()
 
-webServer = WebServer(PORT, formatted)
-infoUpdater = InfoUpdater(computer, formatted)
-
-webServer.start()
-infoUpdater.start()
-
-try:
-    while True:
-        sleep(1)
-        if not (webServer.is_alive() and infoUpdater.is_alive()):
-            raise KeyboardInterrupt("Some thread is dead")
-except KeyboardInterrupt:
-    exit()
+def main(LCD):
+    webServer = WebServer(PORT, formatted)
+    infoUpdater = InfoUpdater(computer, formatted, LCD)
+    webServer.start()
+    infoUpdater.start()
+    try:
+        while True:
+            sleep(1)
+            if not (webServer.is_alive() and infoUpdater.is_alive()):
+                raise KeyboardInterrupt("Some thread is dead")
+    except KeyboardInterrupt:
+        exit()

@@ -7,8 +7,7 @@ import queue
 import time
 import io
 
-lcd = driver.KrakenLCD(50, 90)
-lcd.setupStream()
+lcd = None
 frameBuffer = queue.Queue(maxsize=10)
 PORT = 54217
 
@@ -17,6 +16,10 @@ async def handle_connection(websocket):
     startTime = time.time()
     try:
         async for message in websocket:
+            #if frameBuffer.full():
+            #    print("Queue is full!!!")
+            #else:
+            #    print(f"Queue: {frameBuffer.qsize()}")
             try:
                 startTime = time.time()
                 img = Image.open(io.BytesIO(message))
@@ -26,10 +29,18 @@ async def handle_connection(websocket):
     except Exception as e:
         print(f"Encountered an error during connection: {e}")
 
-frameWriter = FrameWriter(frameBuffer, lcd)
-frameWriter.start()
-
-async def main():
+async def run():
     print(f"Starting WebSocket server on ws://localhost:{PORT}")
     async with websockets.serve(handle_connection, "127.0.0.1", PORT):
         await asyncio.Future()
+
+def main(LCD):
+    global lcd
+    lcd = LCD
+    lcd.setupStream()
+    frameWriter = FrameWriter(frameBuffer, lcd)
+    frameWriter.start()
+    asyncio.run(run())
+
+if __name__ == "__main__":
+    main(driver.KrakenLCD(50, 90))

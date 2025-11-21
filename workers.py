@@ -30,19 +30,22 @@ class FrameWriter(Thread):
         (frame, rawTime, gifTime) = self.frameBuffer.get()
 
         startTime = time.time()
-        self.lcd.writeFrame(frame)
-        writeTime = time.time() - startTime
-        freeTime = rawTime - writeTime
+        try:
+            self.lcd.writeFrame(frame)
+            writeTime = time.time() - startTime
+            freeTime = rawTime - writeTime
 
-        debug(
-            "FPS: {:4.1f} - Frame {:5} (size: {:7}) - raw {:6.2f}ms, gif {:6.2f}ms, write {:6.2f}ms, free time {: 7.2f}ms ".format(
-                self.fps(),
-                self.frameCount,
-                len(frame),
-                rawTime * 1000,
-                gifTime * 1000,
-                writeTime * 1000,
-                freeTime * 1000,
+            debug(
+                "FPS: {:4.1f} - Frame {:5} (size: {:7}) - raw {:6.2f}ms, gif {:6.2f}ms, write {:6.2f}ms, free time {: 7.2f}ms ".format(
+                    self.fps(),
+                    self.frameCount,
+                    len(frame),
+                    rawTime * 1000,
+                    gifTime * 1000,
+                    writeTime * 1000,
+                    freeTime * 1000,
+                )
             )
-        )
-        self.frameCount += 1
+            self.frameCount += 1
+        except Exception:
+            pass

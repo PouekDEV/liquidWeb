@@ -28,7 +28,7 @@ if(!configuration){
         .then(data => {
             hardwareData = data;
         })
-        .catch(err => console.error("Error while getting hardware info:", err));
+        .catch(err => console.error("Error while fetching hardware info"));
     }, 1000);
     ipcMain.handle("data", () => hardwareData);
 }
