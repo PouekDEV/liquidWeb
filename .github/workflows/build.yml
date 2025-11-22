@@ -1,0 +1,46 @@
+name: build
+on: [push, workflow_dispatch]
+
+jobs:
+  build-for-windows:
+    runs-on: windows-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.1
+          cache: npm
+      - name: install dependencies
+        shell: bash
+        run: |
+          pip install -r requirements.txt --upgrade
+          maturin build --release
+          pip install $(find ./target/wheels/*.whl)
+          cd integration-runner
+          npm i
+      - name: build
+        shell: bash
+        run: |
+          pyinstaller main.py --onefile --name=liquidWeb-cli --uac-admin -i "NONE"
+          pyinstaller frameReceiver.py --onefile --name=frame-receiver -i "NONE"
+          pyinstaller hardwareServer.py --name=hardware-server --uac-admin --add-data="$(python -c "import site; print(site.getsitepackages()[1])")\HardwareMonitor:HardwareMonitor" -i "NONE"
+          cd integration-runner
+          npm run package
+      - name: package
+        shell: bash
+        run: |
+          mkdir dist/modules
+          mv dist/frame-receiver.exe modules/
+          mv dist/hardware-server/ modules/
+          mv integration-runner/out/integration-runner-win32-x64/ modules/
+      - run: pyinstaller main.py --onefile --icon=icon.ico --name=KeyHolder --hidden-import="pynput.keyboard._win32" --hidden-import="pynput.mouse._win32"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Artifacts
+          path: dist/*

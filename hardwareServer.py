@@ -170,5 +170,5 @@ if __name__ == "__main__":
         PORT = int(sys.argv[1])
     else:
         print("[HARDWARE-SERVER] Port hasn't been provided")
-        exit()
+        sys.exit()
     main()

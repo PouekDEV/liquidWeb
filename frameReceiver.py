@@ -46,6 +46,6 @@ if __name__ == "__main__":
         PORT = int(sys.argv[3])
     else:
         print("[FRAME-RECEIVER] Brightness, orientation and port hasn't been provided")
-        exit()
+        sys.exit()
     print(f"[FRAME-RECEIVER] Initiating connection with {brightness}% brightness and orientation of {orientation}°")
     asyncio.run(main(driver.KrakenLCD(brightness, orientation)))

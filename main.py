@@ -17,7 +17,7 @@ minimum = False
 def notEnoughArguments():
     print("[MAIN] Not enough arguments provided")
     print("[MAIN] Usage: liquidWeb configuration (0-1) url fps (0-30) brightness (0-100%) orientation (0-360°) port (Optional. Will use the selected one plus the next one. Default 54217,54218)")
-    exit()
+    sys.exit()
 
 if argumentsCount >= 3:
     configuration = sys.argv[1]
@@ -45,10 +45,10 @@ else:
     height = 640
     configuration = 0
 
-p1 = subprocess.Popen(["./integration-runner/out/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
+p1 = subprocess.Popen(["./modules/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
 if argumentsCount >= 5:
-    p2 = subprocess.Popen(["python", "frameReceiver.py", f"{brightness}", f"{orientation}", f"{PORT}"])
-    p3 = subprocess.Popen(["python", "hardwareServer.py", f"{int(PORT)+1}"])
+    p2 = subprocess.Popen(["./modules/frame-receiver", f"{brightness}", f"{orientation}", f"{PORT}"])
+    p3 = subprocess.Popen(["./modules/hardware-server/hardware-server", f"{int(PORT)+1}"])
 
 try:
     while True:
