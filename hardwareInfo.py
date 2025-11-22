@@ -6,6 +6,7 @@ from aiohttp import web
 import asyncio
 import psutil
 import json
+import sys
 
 PORT = 54218
 formatted = {
@@ -154,7 +155,7 @@ async def run_server():
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", PORT)
     await site.start()
-    print(f"Serving hardware info on http://127.0.0.1:{PORT}")
+    print(f"[HARDWARE-SERVER] Serving hardware info on http://localhost:{PORT}")
 
 async def run():
     asyncio.create_task(update_info())
@@ -165,4 +166,9 @@ def main():
     asyncio.run(run())
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 2:
+        PORT = int(sys.argv[1])
+    else:
+        print("[HARDWARE-SERVER] Port hasn't been provided")
+        exit()
     main()

@@ -114,7 +114,7 @@ class KrakenLCD:
                 self.bucketsToUse = max(self.totalBuckets, 2)
                 self.brightness = brightness
                 self.orientation = orientation
-                print(f"Driver detected {dev}")
+                print(f"[DRIVER] Detected {dev}")
                 break
         else:
             raise Exception("No supported device found")

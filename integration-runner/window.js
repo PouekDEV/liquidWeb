@@ -1,18 +1,33 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
+const { exit } = require("node:process");
 const path = require("node:path");
 const WebSocket = require("ws");
+
+if(!app.commandLine.hasSwitch("configuration") || !app.commandLine.hasSwitch("width") || !app.commandLine.hasSwitch("height") || !app.commandLine.hasSwitch("fps") || !app.commandLine.hasSwitch("url")){
+    console.log("[INTEGRATION-RUNNER] Width, height, url, configuration and fps values must be provided");
+    exit(0);
+}
 
 const width = parseInt(app.commandLine.getSwitchValue("width"));
 const height = parseInt(app.commandLine.getSwitchValue("height"));
 let framerate = parseInt(app.commandLine.getSwitchValue("fps"));
 const url = app.commandLine.getSwitchValue("url");
 const configuration = boolean(app.commandLine.getSwitchValue("configuration"));
+let PORT = undefined;
+
+if(!configuration && !app.commandLine.hasSwitch("port")){
+    console.log("[INTEGRATION-RUNNER] Port hasn't been provided");
+    exit(0);
+}
+else{
+    PORT = parseInt(app.commandLine.getSwitchValue("port"));
+}
 
 if(framerate > 30 && !configuration){
-    console.log("Maximum supported framerate is 30 fps.");
+    console.log("[INTEGRATION-RUNNER] Maximum supported framerate is 30 fps.");
     framerate = 30;
 }
-console.log("Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url);
+console.log("[INTEGRATION-RUNNER] Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url, "using ports:", PORT, "and", PORT+1);
 // Easy way to pass a value to the preload script that is only needed once
 process.env.framerate = framerate;
 process.env.configuration = configuration;
@@ -23,14 +38,16 @@ ipcMain.handle("data", () => hardwareData);
 if(!configuration){
     app.commandLine.appendSwitch("high-dpi-support", "1");
     app.commandLine.appendSwitch("force-device-scale-factor", "1");
-    setInterval(() => {
-        fetch("http://localhost:54218")
-        .then(response => response.json())
-        .then(data => {
-            hardwareData = data;
-        })
-        .catch(err => console.error("Error while fetching hardware info"));
-    }, 1000);
+    setTimeout(() => {
+        setInterval(() => {
+            fetch(`http://localhost:${PORT+1}`)
+            .then(response => response.json())
+            .then(data => {
+                hardwareData = data;
+            })
+            .catch(err => console.error("[INTEGRATION-RUNNER] Error while fetching hardware info"));
+        }, 1000);
+    }, 5000);
 }
 
 function boolean(value){
@@ -51,16 +68,16 @@ function createWS(url){
     function connect(){
         ws = new WebSocket(url);
         ws.on("open", () => {
-            console.log("Connected to the frame receiving server");
+            console.log("[INTEGRATION-RUNNER] Connected to frame receiver");
         });
         ws.on("close", () => {
-            console.log("Server closed. Retrying in 5 seconds...");
+            console.log("[INTEGRATION-RUNNER] Server closed. Retrying in 5 seconds...");
             setTimeout(connect, 5000);
         });
         ws.on("error", (err) => {
             // Filter out the AggregateErrors that are from the lack of response from the server when it's down or not started yet
             if(err?.errors.length != 2 && ws.readyState !== WebSocket.CLOSED){
-                console.error("Server error:", err);
+                console.error("[INTEGRATION-RUNNER] Server error:", err);
             }
             ws.close();
         });
@@ -89,12 +106,14 @@ function createWindow(){
     });
     win.loadURL(url + (!configuration ? "?kraken=true" : ""));
     if(!configuration){
-        let ws = createWS("ws://localhost:54217");
-        win.webContents.on("paint", (_event, _dirty, image) => {
-            if(ws && ws.send){
-                ws.send(image.toJPEG(70));
-            }
-        });
+        setTimeout(() => {
+            let ws = createWS(`ws://localhost:${PORT}`);
+            win.webContents.on("paint", (_event, _dirty, image) => {
+                if(ws && ws.send){
+                    ws.send(image.toJPEG(70));
+                }
+            });
+        }, 5000);
         win.webContents.setFrameRate(framerate);
     }
     win.setMenuBarVisibility(false);

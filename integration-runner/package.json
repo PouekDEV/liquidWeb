@@ -19,7 +19,7 @@
     "electron": "^39.2.2"
   },
   "scripts": {
-    "start": "electron-forge start -- --width=640 --height=640 --url=https://www.pouekdev.one/nzxt-integration/ --configuration=0 --fps=30",
+    "start": "electron-forge start -- --width=640 --height=640 --url=https://www.pouekdev.one/nzxt-integration/ --configuration=0 --fps=30 --port=54217",
     "configure": "electron-forge start -- --width=640 --height=640 --url=https://www.pouekdev.one/nzxt-integration/ --configuration=1 --fps=60",
     "package": "electron-forge package",
     "make": "electron-forge make"
