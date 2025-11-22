@@ -1,37 +1,17 @@
-import driver
-import frameReceiver
-import hardwareInfo
-from threading import Thread
-from time import sleep
+import subprocess
+import time
 
-LCD = driver.KrakenLCD(50, 90)
+p1 = subprocess.Popen(["python", "frameReceiver.py"])
+p2 = subprocess.Popen(["python", "hardwareInfo.py"])
 
-class FrameWriterRunner(Thread):
-    def __init__(self):
-        super().__init__(name="FrameWriterRunner")
-        self.daemon = True
-    def run(self):
-        frameReceiver.main(LCD)
-
-class HardwareInfoRunner(Thread):
-    def __init__(self):
-        super().__init__(name="HardwareInfoRunner")
-        self.daemon = True
-    def run(self):
-        hardwareInfo.main(LCD)
-
-def main():
-    rFW = FrameWriterRunner()
-    rHIS = HardwareInfoRunner()
-    rFW.start()
-    rHIS.start()
-    try:
-        while True:
-            sleep(1)
-            if not (rFW.is_alive() and rHIS.is_alive()):
-                raise KeyboardInterrupt("Some thread is dead")
-    except KeyboardInterrupt:
-        exit()
-
-if __name__ == "__main__":
-    main()
+try:
+    while True:
+        time.sleep(1)
+        if p1.poll() is not None or p2.poll() is not None:
+            print("One process exited, shutting down the other")
+            p1.terminate()
+            p2.terminate()
+            break
+except KeyboardInterrupt:
+    p1.terminate()
+    p2.terminate()

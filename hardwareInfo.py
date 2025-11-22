@@ -1,10 +1,9 @@
 # When fully migrating everything to Linux use psutil and hwmon
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from HardwareMonitor.Hardware import *
 from HardwareMonitor.Util import *
-from threading import Thread
-from time import sleep
+from aiohttp import web
+import asyncio
 import psutil
 import json
 
@@ -18,174 +17,152 @@ formatted = {
         "modules": []
     },
     "kraken": {
-        "liquidTemperature": 0
+        "liquidTemperature": None # This value is obtainable but we don't want to block the frameReceiver just to obtain it
     }
 }
 computer = OpenComputer(cpu=True, gpu=True, memory=True)
 
-class InfoUpdater(Thread):
-    def __init__(self, computer, formatted, LCD):
-        Thread.__init__(self, name="InfoUpdater")
-        self.daemon = True
-        self.computer = computer
-        self.formatted = formatted
-        self.minFanSpeed = -1
-        self.maxFanSpeed = 0
-        self.LCD = LCD
-        self.kraken = {"liquid": 0, "pump_duty": 0, "pump_speed": 0, "fan_speed": 0, "fan_duty": 0}
-        self.cpuTemp = {
-            "name": "",
-            "manufacturer": "",
-            "codeName": None,
-            "socket": None,
-            "load": 0,
-            "numCores": 0,
-            "numThreads": 0,
-            "temperature": 0,
-            "minTemperature": 0,
-            "maxTemperature": 0,
-            "frequency": 0,
-            "minFrequency": 0,
-            "maxFrequency": 0,
-            "stockFrequency":  None,
-            "fanSpeed": 0,
-            "minFanSpeed": 0,
-            "maxFanSpeed": 0,
-            "tdp": None,
-            "power": 0
-        }
-        self.gpuTemp = {
-            "name": "",
-            "load": 0,
-            "temperature": 0,
-            "minTemperature": 0,
-            "maxTemperature": 0,
-            "frequency": 0,
-            "minFrequency": 0,
-            "maxFrequency": 0,
-            "stockFrequency": None,
-            "fanSpeed": 0,
-            "minFanSpeed": 0,
-            "maxFanSpeed": 0,
-            "power": 0
-        }
-    def run(self):
-        while True:
-            sleep(1)
-            self.computer.Update()
-            data = ToBuiltinTypes(self.computer.Hardware)
-            try:
-                self.kraken = self.LCD.getStats()
-            except Exception:
-                continue
-            hardwareList = json.loads(json.dumps(data))
-            self.formatted["cpus"] = []
-            self.formatted["gpus"] = []
-            for hardware in hardwareList:
-                cpu = self.cpuTemp.copy()
-                gpu = self.gpuTemp.copy()
-                if "Cpu" in hardware["HardwareType"]:
-                    cpu["name"] = hardware["Name"]
-                    average = 0
-                    max = 0
-                    min = 0
-                    if "intel" in cpu["name"].lower():
-                        cpu["manufacturer"] = "GenuineIntel"
-                    if "amd" in cpu["name"].lower():
-                        cpu["manufacturer"] = "AuthenticAMD"
-                    sensors = hardware["Sensors"]
-                    for sensor in sensors:
-                        try:
-                            if sensor["Name"] == "CPU Total":
-                                cpu["load"] = sensor["Value"]
-                            if sensor["SensorType"] == "Load" and "CPU Core #" in sensor["Name"] and not "Thread #2" in sensor["Name"]:
-                                cpu["numCores"] += 1
-                            if sensor["SensorType"] == "Load" and "CPU Core" in sensor["Name"] and "Thread #1" in sensor["Name"]:
-                                cpu["numThreads"] += 1
-                            if sensor["SensorType"] == "Power" and sensor["Name"] == "CPU Cores":
-                                cpu["power"] = sensor["Value"]
-                            if sensor["SensorType"] == "Temperature" and sensor["Name"] == "Core Average":
-                                cpu["temperature"] = sensor["Value"]
-                                cpu["minTemperature"] = sensor["Min"]
-                                cpu["maxTemperature"] = sensor["Max"]
-                            if sensor["SensorType"] == "Clock":
-                                value = sensor["Value"]
-                                average += value
-                                if value > max:
-                                    max = value
-                                if value < min:
-                                    min = value
-                        except KeyError:
-                            continue
-                    average = average / cpu["numCores"]
-                    cpu["numThreads"] += cpu["numCores"]
-                    fanSpeed = self.kraken["fan_speed"]
-                    cpu["fanSpeed"] = fanSpeed
-                    if fanSpeed > self.maxFanSpeed:
-                        self.maxFanSpeed = fanSpeed
-                    if fanSpeed < self.minFanSpeed or self.minFanSpeed == -1:
-                        self.minFanSpeed = fanSpeed
-                    cpu["minFanSpeed"] = self.minFanSpeed
-                    cpu["maxFanSpeed"] = self.maxFanSpeed
-                    self.formatted["cpus"].append(cpu)
-                if "Gpu" in hardware["HardwareType"]:
-                    gpu["name"] = hardware["Name"]
-                    sensors = hardware["Sensors"]
-                    for sensor in sensors:
-                        try:
-                            if sensor["SensorType"] == "Load" and sensor["Name"] == "GPU Core":
-                                gpu["load"] = sensor["Value"]
-                            if sensor["SensorType"] == "Temperature" and sensor["Name"] == "GPU Core":
-                                gpu["temperature"] = sensor["Value"]
-                                gpu["minTemperature"] = sensor["Min"]
-                                gpu["maxTemperature"] = sensor["Max"]
-                            if sensor["SensorType"] == "Clock" and sensor["Name"] == "GPU Core":
-                                gpu["frequency"] = sensor["Value"]
-                                gpu["minFrequency"] = sensor["Min"]
-                                gpu["maxFrequency"] = sensor["Max"]
-                            if sensor["SensorType"] == "Fan" and sensor["Name"] == "GPU Fan 1":
-                                gpu["fanSpeed"] = sensor["Value"]
-                                gpu["minFanSpeed"] = sensor["Min"]
-                                gpu["maxFanSpeed"] = sensor["Max"]
-                            if sensor["SensorType"] == "Power" and sensor["Name"] == "GPU Package":
-                                gpu["power"] = sensor["Value"]
-                        except KeyError:
-                            continue
-                    self.formatted["gpus"].append(gpu)
-            self.formatted["gpus"].reverse()
-            self.formatted["kraken"]["liquidTemperature"] = self.kraken["liquid"]
-            self.formatted["ram"]["inUse"] = psutil.virtual_memory().used
+async def update_info():
+    minFanSpeed = -1
+    maxFanSpeed = 0
+    while True:
+        await asyncio.to_thread(computer.Update)
+        data = ToBuiltinTypes(computer.Hardware)
+        hardwareList = json.loads(json.dumps(data))
+        formatted["cpus"] = []
+        formatted["gpus"] = []
+        for hardware in hardwareList:
+            cpu = {
+                "name": "",
+                "manufacturer": "",
+                "codeName": None,
+                "socket": None,
+                "load": 0,
+                "numCores": 0,
+                "numThreads": 0,
+                "temperature": 0,
+                "minTemperature": 0,
+                "maxTemperature": 0,
+                "frequency": 0,
+                "minFrequency": 0,
+                "maxFrequency": 0,
+                "stockFrequency": None,
+                "fanSpeed": 0,
+                "minFanSpeed": minFanSpeed,
+                "maxFanSpeed": maxFanSpeed,
+                "tdp": None,
+                "power": 0
+            }
+            gpu = {
+                "name": "",
+                "load": 0,
+                "temperature": 0,
+                "minTemperature": 0,
+                "maxTemperature": 0,
+                "frequency": 0,
+                "minFrequency": 0,
+                "maxFrequency": 0,
+                "stockFrequency": None,
+                "fanSpeed": 0,
+                "minFanSpeed": 0,
+                "maxFanSpeed": 0,
+                "power": 0
+            }
+            if "Cpu" in hardware["HardwareType"]:
+                cpu["name"] = hardware["Name"]
+                sensors = hardware["Sensors"]
+                average = 0
+                maximum = 0
+                minimum = 0
+                if "intel" in cpu["name"].lower():
+                    cpu["manufacturer"] = "GenuineIntel"
+                if "amd" in cpu["name"].lower():
+                    cpu["manufacturer"] = "AuthenticAMD"
+                for sensor in sensors:
+                    try:
+                        if sensor["Name"] == "CPU Total":
+                            cpu["load"] = sensor["Value"]
+                        if sensor["SensorType"] == "Load" and "CPU Core #" in sensor["Name"] and "Thread #2" not in sensor["Name"]:
+                            cpu["numCores"] += 1
+                        if sensor["SensorType"] == "Load" and "CPU Core" in sensor["Name"] and "Thread #1" in sensor["Name"]:
+                            cpu["numThreads"] += 1
+                        if sensor["SensorType"] == "Power" and sensor["Name"] == "CPU Cores":
+                            cpu["power"] = sensor["Value"]
+                        if sensor["SensorType"] == "Temperature" and sensor["Name"] == "Core Average":
+                            cpu["temperature"] = sensor["Value"]
+                            cpu["minTemperature"] = sensor["Min"]
+                            cpu["maxTemperature"] = sensor["Max"]
+                        if sensor["SensorType"] == "Clock":
+                            val = sensor["Value"]
+                            average += val
+                            if val > maximum:
+                                maximum = val
+                            if val < minimum:
+                                minimum = val
+                    except KeyError:
+                        continue
+                if cpu["numCores"]:
+                    average /= cpu["numCores"]
+                cpu["frequency"] = average
+                cpu["numThreads"] += cpu["numCores"]
+                fanSpeed = -1 # This should be replaced on Linux if it's going to be available
+                cpu["fanSpeed"] = fanSpeed
+                if fanSpeed > maxFanSpeed:
+                    maxFanSpeed = fanSpeed
+                if minFanSpeed == -1 or fanSpeed < minFanSpeed:
+                    minFanSpeed = fanSpeed
+                cpu["minFanSpeed"] = minFanSpeed
+                cpu["maxFanSpeed"] = maxFanSpeed
+                formatted["cpus"].append(cpu)
+            if "Gpu" in hardware["HardwareType"]:
+                gpu["name"] = hardware["Name"]
+                sensors = hardware["Sensors"]
+                for sensor in sensors:
+                    try:
+                        t = sensor["SensorType"]
+                        n = sensor["Name"]
+                        if t == "Load" and n == "GPU Core":
+                            gpu["load"] = sensor["Value"]
+                        if t == "Temperature" and n == "GPU Core":
+                            gpu["temperature"] = sensor["Value"]
+                            gpu["minTemperature"] = sensor["Min"]
+                            gpu["maxTemperature"] = sensor["Max"]
+                        if t == "Clock" and n == "GPU Core":
+                            gpu["frequency"] = sensor["Value"]
+                            gpu["minFrequency"] = sensor["Min"]
+                            gpu["maxFrequency"] = sensor["Max"]
+                        if t == "Fan" and n == "GPU Fan 1":
+                            gpu["fanSpeed"] = sensor["Value"]
+                            gpu["minFanSpeed"] = sensor["Min"]
+                            gpu["maxFanSpeed"] = sensor["Max"]
+                        if t == "Power" and n == "GPU Package":
+                            gpu["power"] = sensor["Value"]
+                    except KeyError:
+                        continue
+                formatted["gpus"].append(gpu)
+        formatted["gpus"].reverse()
+        formatted["ram"]["inUse"] = psutil.virtual_memory().used
+        await asyncio.sleep(1)
 
-class WebServer(Thread):
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            value = self.server.parent.formatted
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(value).encode("utf-8"))
-        def log_message(self, format, *args):
-            return 
-    def __init__(self, PORT, formatted):
-        Thread.__init__(self, name="WebServer")
-        self.daemon = True
-        self.PORT = PORT
-        self.formatted = formatted
-    def run(self):
-        server = HTTPServer(("localhost", self.PORT), self.Handler)
-        server.parent = self
-        print(f"Serving on http://localhost:{PORT}")
-        server.serve_forever()
+async def http_handler(_request):
+    return web.json_response(formatted)
 
-def main(LCD):
-    webServer = WebServer(PORT, formatted)
-    infoUpdater = InfoUpdater(computer, formatted, LCD)
-    webServer.start()
-    infoUpdater.start()
-    try:
-        while True:
-            sleep(1)
-            if not (webServer.is_alive() and infoUpdater.is_alive()):
-                raise KeyboardInterrupt("Some thread is dead")
-    except KeyboardInterrupt:
-        exit()
+async def run_server():
+    app = web.Application()
+    app.router.add_get("/", http_handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", PORT)
+    await site.start()
+    print(f"Serving hardware info on http://127.0.0.1:{PORT}")
+
+async def run():
+    asyncio.create_task(update_info())
+    await run_server()
+    await asyncio.Future()
+
+def main():
+    asyncio.run(run())
+
+if __name__ == "__main__":
+    main()

@@ -3,27 +3,23 @@ import frameWriter
 import websockets
 import asyncio
 import driver
-import queue
-import time
 import io
 
 lcd = None
-frameBuffer = queue.Queue(maxsize=10)
+frameBuffer = asyncio.Queue(maxsize=10)
 PORT = 54217
 
 async def handle_connection(websocket):
     print("Connected to integration runner")
-    startTime = time.time()
     try:
         async for message in websocket:
-            if frameBuffer.full():
-                print("Queue is full!!!")
-            else:
-                print(f"Queue: {frameBuffer.qsize()}")
             try:
-                startTime = time.time()
                 img = Image.open(io.BytesIO(message))
-                frameBuffer.put((lcd.imageToFrame(img, adaptive=True), startTime, time.time() - startTime))
+                frame = await asyncio.to_thread(lcd.imageToFrame, img, True)
+                if frameBuffer.full():
+                    _ = frameBuffer.get_nowait()
+                await frameBuffer.put(frame)
+                #print(f"Queue size: {frameBuffer.qsize()}")
             except Exception as e:
                 print(f"Encountered an error while getting a response: {e}")
     except Exception as e:
@@ -34,13 +30,13 @@ async def run():
     async with websockets.serve(handle_connection, "127.0.0.1", PORT):
         await asyncio.Future()
 
-def main(LCD):
+async def main(LCD):
     global lcd
     lcd = LCD
     lcd.setupStream()
-    Writer = frameWriter.FrameWriter(frameBuffer, lcd)
-    Writer.start()
-    asyncio.run(run())
+    writer = frameWriter.FrameWriter(frameBuffer, lcd)
+    asyncio.create_task(writer.run())
+    await run()
 
 if __name__ == "__main__":
-    main(driver.KrakenLCD(50, 90))
+    asyncio.run(main(driver.KrakenLCD(50, 90)))

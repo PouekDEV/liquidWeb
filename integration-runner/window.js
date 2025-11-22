@@ -8,9 +8,9 @@ let framerate = parseInt(app.commandLine.getSwitchValue("fps"));
 const url = app.commandLine.getSwitchValue("url");
 const configuration = boolean(app.commandLine.getSwitchValue("configuration"));
 
-if(framerate > 35 && !configuration){
-    console.log("Maximum supported framerate is 35 fps.");
-    framerate = 35;
+if(framerate > 30 && !configuration){
+    console.log("Maximum supported framerate is 30 fps.");
+    framerate = 30;
 }
 console.log("Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url);
 // Easy way to pass a value to the preload script that is only needed once
@@ -18,6 +18,7 @@ process.env.framerate = framerate;
 process.env.configuration = configuration;
 
 let hardwareData = {};
+ipcMain.handle("data", () => hardwareData);
 
 if(!configuration){
     app.commandLine.appendSwitch("high-dpi-support", "1");
@@ -30,7 +31,6 @@ if(!configuration){
         })
         .catch(err => console.error("Error while fetching hardware info"));
     }, 1000);
-    ipcMain.handle("data", () => hardwareData);
 }
 
 function boolean(value){
@@ -92,7 +92,7 @@ function createWindow(){
         let ws = createWS("ws://localhost:54217");
         win.webContents.on("paint", (_event, _dirty, image) => {
             if(ws && ws.send){
-                ws.send(image.toPNG());
+                ws.send(image.toJPEG(70));
             }
         });
         win.webContents.setFrameRate(framerate);

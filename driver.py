@@ -7,7 +7,6 @@ from typing import Tuple
 from collections import namedtuple
 from enum import Enum, IntEnum
 from PIL import Image, ImageDraw
-from utils import debounce, timing, debugUsb
 import q565_rust
 
 _NZXT_VID = 0x1E71
@@ -138,7 +137,6 @@ class KrakenLCD:
                     self.bulkDev.init_winusb_device_with_path(device.path)
         except Exception:
             raise Exception("Could not connect to kraken device. Is NZXT CAM closed ?")
-        debugUsb("found")
 
         self.black = Image.new("RGBA", self.resolution, (0, 0, 0, 0))
         self.mask = Image.new("RGBA", self.resolution, (0, 0, 0, 0))
@@ -166,7 +164,6 @@ class KrakenLCD:
             raise Exception("Read timeout")
         return self.lastReadMessage
 
-    @timing
     def clear(self):
         if self.hidDev.set_nonblocking(True) == 0:
             timeout_ms = 0
@@ -176,7 +173,6 @@ class KrakenLCD:
         while self.hidDev.read(max_length=64, timeout_ms=timeout_ms):
             discarded += 1
 
-    @timing
     def readUntil(self, parsers):
         for _ in range(_MAX_READ_UNTIL_RETRIES):
             msg = self.read()
@@ -190,18 +186,14 @@ class KrakenLCD:
             False
         ), f"missing messages (attempts={_MAX_READ_UNTIL_RETRIES}, missing={len(parsers)})"
 
-    @timing
     def write(self, data) -> int:
         self.hidDev.set_nonblocking(False)
         padding = [0x0] * (_HID_WRITE_LENGTH - len(data))
         res = self.hidDev.write(data + padding)
         if res < 0:
             raise OSError("Could not write to device")
-        if res != _HID_WRITE_LENGTH:
-            debugUsb("wrote %d total bytes, expected %d", res, _HID_WRITE_LENGTH)
         return res
 
-    @timing
     def bulkWrite(self, data: bytes) -> None:
         self.bulkDev.write(0x2, data)
 
@@ -224,12 +216,10 @@ class KrakenLCD:
     def parseStats(self, packet):
         return {"liquid": packet[15] + packet[16] / 10, "pump_duty": packet[19], "pump_speed": packet[18] << 8 | packet[17], "fan_speed": packet[24] << 8 | packet[23], "fan_duty": packet[25]}
 
-    @timing
     def getStats(self):
         self.write([0x74, 0x1])
         return self.readUntil({b"\x75\x01": self.parseStats})
 
-    @debounce(0.5)
     def setBrightness(self, brightness: int) -> None:
         self.write(
             [
@@ -244,24 +234,20 @@ class KrakenLCD:
             ]
         )
 
-    @timing
     def setLcdMode(self, mode: DISPLAY_MODE, bucket=0) -> bool:
         self.write([0x38, 0x1, mode, bucket])
         return self.readUntil({b"\x39\x01": self.parseStandardResult})
 
-    @timing
     def deleteBucket(self, bucket: int, retries=1) -> bool:
         status = False
         for i in range(retries):
             self.write([0x32, 0x2, bucket])
             status = self.readUntil({b"\x33\x02": self.parseStandardResult})
-            debugUsb(self.formatStandardResult("Delete", bucket, status, i))
             if status:
                 return True
         else:
             return False
 
-    @timing
     def deleteAllBuckets(self):
         for bucket in range(self.totalBuckets):
             for i in range(10):
@@ -273,7 +259,6 @@ class KrakenLCD:
             else:
                 raise Exception("Could not delete bucket {}".format(bucket))
 
-    @timing
     def createBucket(
         self,
         bucket: int,
@@ -297,14 +282,11 @@ class KrakenLCD:
             ]
         )
         status = self.readUntil({b"\x33\x01": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("Create", bucket, status))
         return status
 
-    @timing
     def writeRGBA(self, RGBAData: bytes, bucket: int) -> bool:
         self.write([0x36, 0x01, bucket])
         status = self.readUntil({b"\x37\x01": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("Start writeRGBA", bucket, status))
         if not status:
             return False
 
@@ -324,14 +306,11 @@ class KrakenLCD:
 
         self.write([0x36, 0x02, bucket])
         status = self.readUntil({b"\x37\x02": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("End writeRGBA", bucket, status))
         return status
 
-    @timing
     def writeGIF(self, gifData: bytes, bucket: int) -> bool:
         self.write([0x36, 0x01, 0x0, 0x0])
         status = self.readUntil({b"\x37\x01": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("Start writeGIF", bucket, status))
         if not status:
             return False
 
@@ -352,15 +331,12 @@ class KrakenLCD:
 
         self.write([0x36, 0x02, bucket])
         status = self.readUntil({b"\x37\x02": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("End writeGIF", bucket, status))
         return status
 
-    @timing
     def writeQ565(self, gifData: bytes) -> bool:
         # 4th byte set as 1 writes to some sort of fast memory in kraken elite (bucket number is not relevant)
         self.write([0x36, 0x01, 0x0, 0x1, 0x8])
         status = self.readUntil({b"\x37\x01": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("Start writeQ565", 0, status))
         if not status:
             return False
 
@@ -381,10 +357,8 @@ class KrakenLCD:
 
         self.write([0x36, 0x02])
         status = self.readUntil({b"\x37\x02": self.parseStandardResult})
-        debugUsb(self.formatStandardResult("End writeQ565", 0, status))
         return status
 
-    @timing
     def writeFrame(self, frame: bytes):
         if not self.streamReady:
             return False
@@ -415,7 +389,6 @@ class KrakenLCD:
         self.nextFrameBucket = (self.nextFrameBucket + 1) % self.bucketsToUse
         return result
 
-    @timing
     def imageToFrame(self, img: Image.Image, adaptive=False) -> bytes:
         img = img.rotate(self.orientation)
         # cut the image to circular frame. This reduce gif size by ~20%
@@ -440,7 +413,6 @@ class KrakenLCD:
         else:
             byteio = BytesIO()
 
-            @timing
             def convert():
                 nonlocal img
                 if adaptive:
@@ -454,7 +426,6 @@ class KrakenLCD:
             convert()
             return byteio.getvalue()
 
-    @timing
     def setupStream(self):
         if self.supportsLiquidMode:
             self.setLcdMode(DISPLAY_MODE.LIQUID, 0x0)
