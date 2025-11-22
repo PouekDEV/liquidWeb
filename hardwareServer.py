@@ -13,7 +13,7 @@ formatted = {
     "cpus": [],
     "gpus": [],
     "ram": {
-        "totalSize": psutil.virtual_memory().total,
+        "totalSize": psutil.virtual_memory().total / 1024 / 1024,
         "inUse": 0,
         "modules": []
     },
@@ -82,7 +82,7 @@ async def update_info():
                 for sensor in sensors:
                     try:
                         if sensor["Name"] == "CPU Total":
-                            cpu["load"] = sensor["Value"]
+                            cpu["load"] = sensor["Value"] / 100
                         if sensor["SensorType"] == "Load" and "CPU Core #" in sensor["Name"] and "Thread #2" not in sensor["Name"]:
                             cpu["numCores"] += 1
                         if sensor["SensorType"] == "Load" and "CPU Core" in sensor["Name"] and "Thread #1" in sensor["Name"]:
@@ -123,7 +123,7 @@ async def update_info():
                         t = sensor["SensorType"]
                         n = sensor["Name"]
                         if t == "Load" and n == "GPU Core":
-                            gpu["load"] = sensor["Value"]
+                            gpu["load"] = sensor["Value"] / 100
                         if t == "Temperature" and n == "GPU Core":
                             gpu["temperature"] = sensor["Value"]
                             gpu["minTemperature"] = sensor["Min"]
@@ -142,7 +142,7 @@ async def update_info():
                         continue
                 formatted["gpus"].append(gpu)
         formatted["gpus"].reverse()
-        formatted["ram"]["inUse"] = psutil.virtual_memory().used
+        formatted["ram"]["inUse"] = psutil.virtual_memory().used / 1024 / 1024
         await asyncio.sleep(1)
 
 async def http_handler(_request):

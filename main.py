@@ -48,7 +48,7 @@ else:
 p1 = subprocess.Popen(["./integration-runner/out/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
 if argumentsCount >= 5:
     p2 = subprocess.Popen(["python", "frameReceiver.py", f"{brightness}", f"{orientation}", f"{PORT}"])
-    p3 = subprocess.Popen(["python", "hardwareInfo.py", f"{int(PORT)+1}"])
+    p3 = subprocess.Popen(["python", "hardwareServer.py", f"{int(PORT)+1}"])
 
 try:
     while True:
