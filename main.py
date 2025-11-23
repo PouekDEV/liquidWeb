@@ -4,6 +4,7 @@ import threading
 import win32gui
 import win32con
 import pystray
+import signal
 import time
 import sys
 
@@ -20,7 +21,6 @@ PORT = 54217
 argumentsCount = len(sys.argv)
 minimum = False
 stopRequested = False
-showConsole = True
 hideOnce = False
 program = win32gui.GetForegroundWindow()
 
@@ -79,20 +79,23 @@ if argumentsCount >= 5:
     p3 = subprocess.Popen(["./modules/hardware-server/hardware-server", f"{int(PORT)+1}"])
 
 if tray == "1":
-    showConsole = False
     threading.Thread(target=trayThread, daemon=True).start()
 
 try:
     while True:
         time.sleep(1)
-        if tray == "1" and not showConsole and not hideOnce:
+        if tray == "1" and not hideOnce:
             win32gui.ShowWindow(program , win32con.SW_HIDE)
             hideOnce = True
-        if tray == "1" and not showConsole and hideOnce:
+        if tray == "1" and hideOnce:
             placement = win32gui.GetWindowPlacement(program)
             if placement[1] == win32con.SW_SHOWMINIMIZED:
                 win32gui.ShowWindow(program , win32con.SW_HIDE)
         if stopRequested:
+            win32gui.ShowWindow(program, win32con.SW_RESTORE)
+            p1.terminate()
+            p2.send_signal(signal.CTRL_BREAK_EVENT)
+            p3.terminate()
             print("[MAIN] Requested quit from tray icon")
             break
         if argumentsCount >= 6:
@@ -103,9 +106,10 @@ try:
             if p1.poll() is not None:
                 print("[MAIN] Integration runner closed")
                 break
-except Exception:
+except Exception as e:
+    print(f"[MAIN] {e}")
     print("[MAIN] Stopping")
     p1.terminate()
     if argumentsCount >= 6:
-        p2.terminate()
+        p2.send_signal(signal.CTRL_BREAK_EVENT)
         p3.terminate()
