@@ -14,6 +14,7 @@ jobs:
       - name: setup Node.js
         uses: actions/setup-node@v4
         with:
+          cache-dependency-path: integration-runner/package-lock.json
           node-version: 22.1
           cache: npm
       - name: install dependencies
@@ -22,8 +23,6 @@ jobs:
           pip install -r requirements.txt --upgrade
           maturin build --release
           pip install $(find ./target/wheels/*.whl)
-          cd integration-runner
-          npm i
       - name: build
         shell: bash
         run: |
@@ -39,7 +38,6 @@ jobs:
           mv dist/frame-receiver.exe modules/
           mv dist/hardware-server/ modules/
           mv integration-runner/out/integration-runner-win32-x64/ modules/
-      - run: pyinstaller main.py --onefile --icon=icon.ico --name=KeyHolder --hidden-import="pynput.keyboard._win32" --hidden-import="pynput.mouse._win32"
       - uses: actions/upload-artifact@v4
         with:
           name: Artifacts
