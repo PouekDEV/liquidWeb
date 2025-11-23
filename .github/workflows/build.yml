@@ -37,9 +37,9 @@ jobs:
         shell: bash
         run: |
           mkdir dist/modules
-          mv dist/frame-receiver.exe modules/
-          mv dist/hardware-server/ modules/
-          mv integration-runner/out/integration-runner-win32-x64/ modules/
+          mv dist/frame-receiver.exe dist/modules/
+          mv dist/hardware-server/ dist/modules/
+          mv integration-runner/out/integration-runner-win32-x64/ dist/modules/
       - uses: actions/upload-artifact@v4
         with:
           name: Artifacts
