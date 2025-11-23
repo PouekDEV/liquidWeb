@@ -23,6 +23,8 @@ jobs:
           pip install -r requirements.txt --upgrade
           maturin build --release
           pip install $(find ./target/wheels/*.whl)
+          cd integration-runner
+          npm i
       - name: build
         shell: bash
         run: |
