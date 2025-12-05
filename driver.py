@@ -1,19 +1,21 @@
-from io import BytesIO
-import time
-import hid
-import math
+from util import normalizeProfile, interpolateProfile, clamp
+from collections import namedtuple
+from PIL import Image, ImageDraw
+from enum import Enum, IntEnum
 from winusbcdc import WinUsbPy
 from typing import Tuple
-from collections import namedtuple
-from enum import Enum, IntEnum
-from PIL import Image, ImageDraw
+from io import BytesIO
 import q565_rust
+import time
+import math
+import hid
 
 _NZXT_VID = 0x1E71
 _DEFAULT_TIMEOUT_MS = 1000
 _HID_WRITE_LENGTH = 64
 _HID_READ_LENGTH = 64
 _MAX_READ_UNTIL_RETRIES = 50
+_CRITICAL_TEMPERATURE = 59
 _COMMON_WRITE_HEADER = [
     0x12,
     0xFA,
@@ -54,6 +56,10 @@ SUPPORTED_DEVICES = [
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
+        "speedChannels": {
+            "pump": ([0x1, 0x0, 0x0], 20, 100),
+            "fan": ([0x2, 0x0, 0x0], 0, 100),
+        }
     },
     {
         "pid": 0x300C,
@@ -63,6 +69,10 @@ SUPPORTED_DEVICES = [
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
+        "speedChannels": {
+            "pump": ([0x1, 0x1, 0x0], 20, 100),
+            "fan": ([0x2, 0x1, 0x1], 0, 100),
+        }
     },
     {
         "pid": 0x3012,
@@ -72,6 +82,10 @@ SUPPORTED_DEVICES = [
         "totalBuckets": 16,
         "maxBucketSize": 20 * 1024 * 1024,  # 20MB
         "supportsLiquidMode": True,
+        "speedChannels": {
+            "pump": ([0x1, 0x1, 0x0], 20, 100),
+            "fan": ([0x2, 0x1, 0x1], 0, 100),
+        }
     }
 ]
 
@@ -114,7 +128,8 @@ class KrakenLCD:
                 self.bucketsToUse = max(self.totalBuckets, 2)
                 self.brightness = brightness
                 self.orientation = orientation
-                print(f"[DRIVER] Detected {dev}")
+                self.speedChannels = dev["speedChannels"]
+                print(f"[DRIVER] Detected {self.name} (PID: {self.pid})")
                 break
         else:
             raise Exception("No supported device found")
@@ -233,6 +248,15 @@ class KrakenLCD:
                 0x3,  # default orientation,
             ]
         )
+
+    # Taken from liquidctl
+    def setFixedSpeed(self, channel, duty):
+        cid, dmin, dmax = self.speedChannels[channel]
+        header = [0x72] + cid
+        norm = normalizeProfile([(0, duty), (_CRITICAL_TEMPERATURE - 1, duty)], _CRITICAL_TEMPERATURE)
+        stdtemps = list(range(0, _CRITICAL_TEMPERATURE + 1))
+        interp = [clamp(interpolateProfile(norm, t), dmin, dmax) for t in stdtemps]
+        self.write(header + interp)
 
     def setLcdMode(self, mode: DISPLAY_MODE, bucket=0) -> bool:
         self.write([0x38, 0x1, mode, bucket])
@@ -390,7 +414,7 @@ class KrakenLCD:
         return result
 
     def imageToFrame(self, img: Image.Image, adaptive=False) -> bytes:
-        img = img.rotate(self.orientation)
+        img = img.resize(self.resolution).rotate(self.orientation)
         # cut the image to circular frame. This reduce gif size by ~20%
         img = Image.composite(img, self.black, self.mask)
 

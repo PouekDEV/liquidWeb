@@ -1,3 +1,4 @@
+from aioxmlrpc.server import SimpleXMLRPCServer
 from PIL import Image
 import frameWriter
 import websockets
@@ -10,7 +11,7 @@ lcd = None
 frameBuffer = asyncio.Queue(maxsize=10)
 PORT = 54217
 
-async def handle_connection(websocket):
+async def handleConnection(websocket):
     print("[FRAME-RECEIVER] Connected to integration runner")
     try:
         async for message in websocket:
@@ -28,8 +29,14 @@ async def handle_connection(websocket):
 
 async def run():
     print(f"[FRAME-RECEIVER] Starting WebSocket server on ws://localhost:{PORT}")
-    async with websockets.serve(handle_connection, "127.0.0.1", PORT):
+    async with websockets.serve(handleConnection, "127.0.0.1", PORT):
         await asyncio.Future()
+
+async def runXMLRPCServer():
+    server = SimpleXMLRPCServer(("localhost", PORT + 2), allow_none=True)
+    server.register_function(setFixedSpeed)
+    print(f"[FRAME-RECEIVER] Hosting device handle on port {PORT + 2}")
+    await server.serve_forever()
 
 async def main(LCD):
     global lcd
@@ -37,7 +44,12 @@ async def main(LCD):
     lcd.setupStream()
     writer = frameWriter.FrameWriter(frameBuffer, lcd)
     asyncio.create_task(writer.run())
+    asyncio.create_task(runXMLRPCServer())
     await run()
+
+async def setFixedSpeed(channel, duty):
+    global lcd
+    lcd.setFixedSpeed(channel, duty)
 
 if __name__ == "__main__":
     if len(sys.argv) >= 4:

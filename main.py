@@ -26,7 +26,7 @@ program = win32gui.GetForegroundWindow()
 
 def notEnoughArguments():
     print("[MAIN] Not enough arguments provided")
-    print("[MAIN] Usage: liquidWeb configuration (0-1) url fps (0-30) brightness (0-100%) orientation (0-360°) system-tray (0-1) port (Optional. Will use the selected one plus the next one. Default 54217,54218)")
+    print("[MAIN] Usage: liquidWeb configuration (0-1) url fps (0-30) brightness (0-100%) orientation (0-360°) system-tray (0-1) port (Optional. Will use the selected one plus two next ones. Default 54217,54218,54219)")
     sys.exit()
 
 def trayQuit(icon, item):
@@ -76,7 +76,7 @@ else:
 p1 = subprocess.Popen(["./modules/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
 if argumentsCount >= 5:
     p2 = subprocess.Popen(["./modules/frame-receiver", f"{brightness}", f"{orientation}", f"{PORT}"])
-    p3 = subprocess.Popen(["./modules/hardware-server/hardware-server", f"{int(PORT)+1}"])
+    p3 = subprocess.Popen(["./modules/hardware-server/hardware-server", f"{int(PORT) + 1}"])
 
 if tray == "1":
     threading.Thread(target=trayThread, daemon=True).start()

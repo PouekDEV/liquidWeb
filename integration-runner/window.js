@@ -27,10 +27,12 @@ if(framerate > 30 && !configuration){
     console.log("[INTEGRATION-RUNNER] Maximum supported framerate is 30 fps.");
     framerate = 30;
 }
-console.log("[INTEGRATION-RUNNER] Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url, "using ports:", PORT, "and", PORT+1);
+console.log("[INTEGRATION-RUNNER] Initiating with", width, "px width,", height, "px height,", framerate, "fps and in", (configuration ? "configuration" : "normal"), "mode with url:", url, "using ports:", PORT, "and", PORT + 1);
 // Easy way to pass a value to the preload script that is only needed once
 process.env.framerate = framerate;
 process.env.configuration = configuration;
+process.env.width = width;
+process.env.height = height;
 
 let hardwareData = {};
 ipcMain.handle("data", () => hardwareData);
@@ -38,16 +40,21 @@ ipcMain.handle("data", () => hardwareData);
 if(!configuration){
     app.commandLine.appendSwitch("high-dpi-support", "1");
     app.commandLine.appendSwitch("force-device-scale-factor", "1");
-    setTimeout(() => {
-        setInterval(() => {
-            fetch(`http://localhost:${PORT+1}`)
-            .then(response => response.json())
-            .then(data => {
-                hardwareData = data;
-            })
-            .catch(err => console.error("[INTEGRATION-RUNNER] Error while fetching hardware info"));
-        }, 1000);
-    }, 5000);
+    setTimeout(fetchHardwareInfo, 5000);
+}
+
+function fetchHardwareInfo(){
+    fetch(`http://localhost:${PORT + 1}`)
+    .then(response => response.json())
+    .then(data => {
+        hardwareData = data;
+        setTimeout(fetchHardwareInfo, 1000);
+    })
+    .catch(err => {
+            console.error("[INTEGRATION-RUNNER] Error while fetching hardware info. Retrying in 5 seconds...");
+            setTimeout(fetchHardwareInfo, 5000);
+        }
+    );
 }
 
 function boolean(value){

@@ -164,3 +164,4 @@ cython_debug/
 test/
 output/
 liquidWeb-old
+curves.json
