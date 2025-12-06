@@ -161,6 +161,7 @@ async def updateInfo():
                         if t == "Temperature" and n == "Liquid":
                             formatted["kraken"]["liquidTemperature"] = sensor["Value"]
                         if t == "Fan" and n == "Fans":
+                            # Nobody has more than one CPU right?
                             formatted["cpus"][0]["fanSpeed"] = sensor["Value"]
                             formatted["cpus"][0]["minFanSpeed"] = sensor["Min"]
                             formatted["cpus"][0]["maxFanSpeed"] = sensor["Max"]
@@ -187,7 +188,10 @@ async def updateDuty(channel, temp, criticalTemp):
     average = ema
     duty = interpolateProfile(norm, ema)
     #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}%")
-    await lcd.setFixedSpeed(channel, duty)
+    try:
+        await lcd.setFixedSpeed(channel, duty)
+    except OSError:
+        print(f"[HARDWARE-SERVER] There was an error while writing duty info for {channel}")
 
 async def checkCurves(cpuTemp, gpuTemp, liquidTemp):
     global config, cpuTemps
