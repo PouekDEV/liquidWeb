@@ -177,7 +177,7 @@ async def updateDuty(channel, temp, criticalTemp):
     global config
     norm = normalizeProfile(config[channel], criticalTemp)
     average = None
-    cutoff_freq = 1 / 2 / 10
+    cutoff_freq = 1 / 10
     alpha = 1 - math.exp(-2 * math.pi * cutoff_freq)
     ema = average
     sample = temp
@@ -187,16 +187,15 @@ async def updateDuty(channel, temp, criticalTemp):
         ema = alpha * sample + (1 - alpha) * ema
     average = ema
     duty = interpolateProfile(norm, ema)
-    #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}%")
+    #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
     try:
         await lcd.setFixedSpeed(channel, duty)
-    except OSError:
+    except Exception:
         print(f"[HARDWARE-SERVER] There was an error while writing duty info for {channel}")
 
 async def checkCurves(cpuTemp, gpuTemp, liquidTemp):
     global config, cpuTemps
-    await asyncio.sleep(1)
-    cpuTemps.append(math.ceil(cpuTemp))
+    cpuTemps.append(cpuTemp)
     cpuTemps.pop(0)
     averageCpuTemp = 0
     for temp in cpuTemps:
