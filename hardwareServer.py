@@ -177,7 +177,7 @@ async def updateDuty(channel, temp, criticalTemp):
     global config
     norm = normalizeProfile(config[channel], criticalTemp)
     average = None
-    cutoff_freq = 1 / 10
+    cutoff_freq = 1 / 2 / 10
     alpha = 1 - math.exp(-2 * math.pi * cutoff_freq)
     ema = average
     sample = temp
@@ -195,6 +195,7 @@ async def updateDuty(channel, temp, criticalTemp):
 
 async def checkCurves(cpuTemp, gpuTemp, liquidTemp):
     global config, cpuTemps
+    await asyncio.sleep(1)
     cpuTemps.append(cpuTemp)
     cpuTemps.pop(0)
     averageCpuTemp = 0

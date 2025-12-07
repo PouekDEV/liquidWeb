@@ -5,12 +5,8 @@ class FrameWriter:
     def __init__(self, frameBuffer: asyncio.Queue, lcd: driver.KrakenLCD):
         self.frameBuffer = frameBuffer
         self.lcd = lcd
-        self.shouldStop = False
     async def run(self):
-        while not self.shouldStop:
-            if self.frameBuffer.empty():
-                await asyncio.sleep(0.001)
-                continue
+        while True:
             await self.onFrame()
     async def onFrame(self):
         frame = await self.frameBuffer.get()
