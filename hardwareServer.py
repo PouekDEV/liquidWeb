@@ -33,6 +33,10 @@ config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, 
 dutySensors = ["cpu", "gpu", "liquid"]
 filePath = os.path.dirname(os.path.abspath(__file__))
 cpuTemps = [0] * 4
+lastUpdatedDuty = {
+    "fan": 0,
+    "pump": 0
+}
 
 async def updateInfo():
     minFrequency = -1
@@ -187,11 +191,13 @@ async def updateDuty(channel, temp, criticalTemp):
         ema = alpha * sample + (1 - alpha) * ema
     average = ema
     duty = interpolateProfile(norm, ema)
-    #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
-    try:
-        await lcd.setFixedSpeed(channel, duty)
-    except Exception:
-        print(f"[HARDWARE-SERVER] There was an error while writing duty info for {channel}")
+    if lastUpdatedDuty[channel] != duty:
+        lastUpdatedDuty[channel] = duty
+        #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
+        try:
+            await lcd.setFixedSpeed(channel, duty)
+        except Exception:
+            print(f"[HARDWARE-SERVER] There was an error while writing duty info for {channel}")
 
 async def checkCurves(cpuTemp, gpuTemp, liquidTemp):
     global config, cpuTemps
