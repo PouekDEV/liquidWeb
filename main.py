@@ -1,3 +1,5 @@
+# This file is mostly Windows slop but until my Linux switch it has to stay that way
+
 from PIL import Image
 import subprocess
 import threading
@@ -72,6 +74,13 @@ else:
     width = 640
     height = 640
     configuration = 0
+
+subprocess.call("net stop hns")
+subprocess.call("net start hns")
+
+subprocess.call("taskkill /im integration-runner.exe /f /t")
+subprocess.call("taskkill /im frame-receiver.exe /f /t")
+subprocess.call("taskkill /im hardware-server.exe /f /t")
 
 p1 = subprocess.Popen(["./modules/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
 if argumentsCount >= 5:

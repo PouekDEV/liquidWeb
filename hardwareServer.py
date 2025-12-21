@@ -193,7 +193,7 @@ async def updateDuty(channel, temp, criticalTemp):
     duty = interpolateProfile(norm, ema)
     if lastUpdatedDuty[channel] != duty:
         lastUpdatedDuty[channel] = duty
-        #print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
+        print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
         try:
             await lcd.setFixedSpeed(channel, duty)
         except Exception:
