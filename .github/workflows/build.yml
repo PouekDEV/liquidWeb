@@ -1,9 +1,9 @@
 name: build
-on: [push, workflow_dispatch]
+on: [workflow_dispatch]
 
 jobs:
-  build-for-windows:
-    runs-on: windows-latest
+  build-for-linux:
+    runs-on: ubuntu-latest
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
