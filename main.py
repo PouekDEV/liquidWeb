@@ -82,6 +82,8 @@ subprocess.call("taskkill /im integration-runner.exe /f /t")
 subprocess.call("taskkill /im frame-receiver.exe /f /t")
 subprocess.call("taskkill /im hardware-server.exe /f /t")
 
+time.sleep(5)
+
 p1 = subprocess.Popen(["./modules/integration-runner-win32-x64/integration-runner.exe", f"--width={width}", f"--height={height}", f"--fps={fps}", f"--configuration={configuration}", f"--url={url}", f"--port={PORT}"])
 if argumentsCount >= 5:
     p2 = subprocess.Popen(["./modules/frame-receiver", f"{brightness}", f"{orientation}", f"{PORT}"])
