@@ -2,7 +2,7 @@ import re
 
 # Gracefully taken from liquidctl
 
-def normalizeProfile(profile, critx, max_value=100):
+def normalize_profile(profile, critx, max_value=100):
     profile = sorted(list(profile) + [(critx, max_value)], key=lambda p: (p[0], -p[1]))
     mono = profile[0:1]
     for (x, y), (xb, yb) in zip(profile[1:], profile[:-1]):
@@ -15,7 +15,7 @@ def normalizeProfile(profile, critx, max_value=100):
             break
     return mono
 
-def interpolateProfile(profile, x):
+def interpolate_profile(profile, x):
     lower, upper = profile[0], profile[-1]
     for step in profile:
         if step[0] <= x:
@@ -33,15 +33,15 @@ def clamp(value, clampmin, clampmax):
 
 # ---
 
-def getCpuVendorAndModelName():
-    vendorId = ""
-    modelName = ""
+def cpu_vendor_and_model_name():
+    vendor_id = ""
+    model_name = ""
     with open("/proc/cpuinfo", "r") as f:
         lines = f.readlines()
         for line in lines:
             if "vendor_id" in line:
-                vendorId = re.sub(".*vendor_id.*: ", "", line).replace("\n","")
+                vendor_id = re.sub(".*vendor_id.*: ", "", line).replace("\n","")
             if "model name" in line:
-                modelName = re.sub(".*model name.*: ", "", line).replace("\n","")
+                model_name = re.sub(".*model name.*: ", "", line).replace("\n","")
                 break
-    return (vendorId, modelName)
+    return (vendor_id, model_name)

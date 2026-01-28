@@ -1,4 +1,4 @@
-from util import normalizeProfile, interpolateProfile, getCpuVendorAndModelName
+from util import normalize_profile, interpolate_profile, cpu_vendor_and_model_name
 from driver import _CRITICAL_TEMPERATURE
 from aioxmlrpc.client import ServerProxy
 from aiohttp import web
@@ -14,8 +14,8 @@ _CRITICAL_TEMPERATURE_CPU = 99
 formatted = {
     "cpus": [
         {
-            "name": getCpuVendorAndModelName()[1],
-            "manufacturer": getCpuVendorAndModelName()[0],
+            "name": cpu_vendor_and_model_name()[1],
+            "manufacturer": cpu_vendor_and_model_name()[0],
             "codeName": None,
             "socket": None,
             "load": psutil.cpu_percent(interval=None) / 100,
@@ -47,15 +47,15 @@ formatted = {
 }
 lcd = None
 config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0}
-dutySensors = ["cpu", "gpu", "liquid"]
-filePath = os.path.dirname(os.path.abspath(__file__))
-cpuTemps = [0] * 4
-lastUpdatedDuty = {
+duty_sensors = ["cpu", "gpu", "liquid"]
+file_path = os.path.dirname(os.path.abspath(__file__))
+cpu_temps = [0] * 4
+last_updated_duty = {
     "fan": 0,
     "pump": 0
 }
 
-async def updateInfo():
+async def update_info():
     while True:
         formatted["cpus"][0]["load"] = psutil.cpu_percent(interval=None) / 100
         formatted["cpus"][0]["frequency"] = psutil.cpu_freq()[0]
@@ -107,13 +107,13 @@ async def updateInfo():
         #    formatted["gpus"].append(gpu)
         formatted["gpus"].reverse()
         formatted["ram"]["inUse"] = psutil.virtual_memory().used / 1024 / 1024
-        await checkCurves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])
+        #await check_curves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])
         await asyncio.sleep(1)
 
 # Modified from liquidctl yoda
-async def updateDuty(channel, temp, criticalTemp):
+async def update_duty(channel, temp, critical_temp):
     global config
-    norm = normalizeProfile(config[channel], criticalTemp)
+    norm = normalize_profile(config[channel], critical_temp)
     average = None
     cutoff_freq = 1 / 2 / 10
     alpha = 1 - math.exp(-2 * math.pi * cutoff_freq)
@@ -124,47 +124,47 @@ async def updateDuty(channel, temp, criticalTemp):
     else:
         ema = alpha * sample + (1 - alpha) * ema
     average = ema
-    duty = interpolateProfile(norm, ema)
-    if lastUpdatedDuty[channel] != duty:
-        lastUpdatedDuty[channel] = duty
+    duty = interpolate_profile(norm, ema)
+    if last_updated_duty[channel] != duty:
+        last_updated_duty[channel] = duty
         print(f"[HARDWARE-SERVER] Setting {channel} duty to {duty}% | {temp}°C")
         try:
-            await lcd.setFixedSpeed(channel, duty)
+            await lcd.set_fixed_speed(channel, duty)
         except Exception:
             print(f"[HARDWARE-SERVER] There was an error while writing duty info for {channel}")
 
-async def checkCurves(cpuTemp, gpuTemp, liquidTemp):
-    global config, cpuTemps
+async def check_curves(cpu_temp, gpu_temp, liquid_temp):
+    global config, cpu_temps
     await asyncio.sleep(1)
-    cpuTemps.append(cpuTemp)
-    cpuTemps.pop(0)
-    averageCpuTemp = 0
-    for temp in cpuTemps:
-        averageCpuTemp += temp
-    averageCpuTemp /= len(cpuTemps)
-    if len(config["fan"]) > 0 and config["fan_sensor"] in dutySensors:
-        if config["fan_sensor"] == dutySensors[0]:
-            temp = averageCpuTemp
-        if config["fan_sensor"] == dutySensors[1]:
-            temp = gpuTemp
-        if config["fan_sensor"] == dutySensors[2]:
-            temp = liquidTemp
-        await updateDuty("fan", temp, _CRITICAL_TEMPERATURE_CPU)
-    if len(config["pump"]) > 0 and config["pump_sensor"] in dutySensors:
-        if config["pump_sensor"] == dutySensors[0]:
-            temp = averageCpuTemp
-        if config["pump_sensor"] == dutySensors[1]:
-            temp = gpuTemp
-        if config["pump_sensor"] == dutySensors[2]:
-            temp = liquidTemp
-        await updateDuty("pump", temp, _CRITICAL_TEMPERATURE)
+    cpu_temps.append(cpu_temp)
+    cpu_temps.pop(0)
+    average_cpu_temp = 0
+    for temp in cpu_temps:
+        average_cpu_temp += temp
+    average_cpu_temp /= len(cpu_temps)
+    if len(config["fan"]) > 0 and config["fan_sensor"] in duty_sensors:
+        if config["fan_sensor"] == duty_sensors[0]:
+            temp = average_cpu_temp
+        if config["fan_sensor"] == duty_sensors[1]:
+            temp = gpu_temp
+        if config["fan_sensor"] == duty_sensors[2]:
+            temp = liquid_temp
+        await update_duty("fan", temp, _CRITICAL_TEMPERATURE_CPU)
+    if len(config["pump"]) > 0 and config["pump_sensor"] in duty_sensors:
+        if config["pump_sensor"] == duty_sensors[0]:
+            temp = average_cpu_temp
+        if config["pump_sensor"] == duty_sensors[1]:
+            temp = gpu_temp
+        if config["pump_sensor"] == duty_sensors[2]:
+            temp = liquid_temp
+        await update_duty("pump", temp, _CRITICAL_TEMPERATURE)
 
-async def httpHandler(_request):
+async def http_handler(_request):
     return web.json_response(formatted)
 
-async def runServer():
+async def run_server():
     app = web.Application()
-    app.router.add_get("/", httpHandler)
+    app.router.add_get("/", http_handler)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", PORT)
@@ -173,34 +173,34 @@ async def runServer():
 
 async def run():
     global lcd
-    asyncio.create_task(updateInfo())
+    asyncio.create_task(update_info())
     lcd = ServerProxy(f"http://localhost:{PORT + 1}")
     print(f"[HARDWARE-SERVER] Grabbing device handle from port {PORT + 1}")
-    await runServer()
+    await run_server()
     await asyncio.Future()
 
 def main():
     global config
     try:
-        with open(f"{filePath}/curves.json", "r") as f:
+        with open(f"{file_path}/curves.json", "r") as f:
             try:
                 config = json.loads(f.read())
                 if len(config["fan"]) % 2 == 0:
-                    tuplePointer = 0
+                    tuple_pointer = 0
                     fan = []
-                    while tuplePointer < len(config["fan"]):
-                        fan.append((config["fan"][tuplePointer], config["fan"][tuplePointer + 1]))
-                        tuplePointer += 2
+                    while tuple_pointer < len(config["fan"]):
+                        fan.append((config["fan"][tuple_pointer], config["fan"][tuple_pointer + 1]))
+                        tuple_pointer += 2
                     config["fan"] = fan
                 else:
                     config["fan"] = []
                     raise KeyError
                 if len(config["pump"]) % 2 == 0:
-                    tuplePointer = 0
+                    tuple_pointer = 0
                     pump = []
-                    while tuplePointer < len(config["pump"]):
-                        pump.append((config["pump"][tuplePointer], config["pump"][tuplePointer + 1]))
-                        tuplePointer += 2
+                    while tuple_pointer < len(config["pump"]):
+                        pump.append((config["pump"][tuple_pointer], config["pump"][tuple_pointer + 1]))
+                        tuple_pointer += 2
                     config["pump"] = pump
                 else:
                     config["pump"] = []
@@ -209,7 +209,7 @@ def main():
             except KeyError:
                 print("[HARDWARE-SERVER] There was an error while parsing curve config")
     except FileNotFoundError:
-        with open(f"{filePath}/curves.json", "w") as f:
+        with open(f"{file_path}/curves.json", "w") as f:
             f.write(json.dumps(config))
         print("[HARDWARE-SERVER] Curve config file not found. Created a blank one")
     asyncio.run(run())

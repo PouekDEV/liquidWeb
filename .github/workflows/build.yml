@@ -29,8 +29,8 @@ jobs:
         shell: bash
         run: |
           pyinstaller main.py --onefile --name=liquidWeb-cli -i "NONE"
-          pyinstaller frameReceiver.py --onefile --name=frame-receiver -i "NONE"
-          pyinstaller hardwareServer.py --name=hardware-server -i "NONE"
+          pyinstaller framereceiver.py --onefile --name=frame-receiver -i "NONE"
+          pyinstaller hardwareserver.py --name=hardware-server -i "NONE"
           cd integration-runner
           npm run package
       - name: package

@@ -1,6 +1,6 @@
 from aioxmlrpc.server import SimpleXMLRPCServer
 from PIL import Image
-import frameWriter
+import framewriter
 import websockets
 import asyncio
 import driver
@@ -8,19 +8,19 @@ import sys
 import io
 
 lcd = None
-frameBuffer = asyncio.Queue(maxsize=10)
+frame_buffer = asyncio.Queue(maxsize=10)
 PORT = 54217
 
-async def handleConnection(websocket):
+async def handle_connection(websocket):
     print("[FRAME-RECEIVER] Connected to integration runner")
     try:
         async for message in websocket:
             try:
                 img = Image.open(io.BytesIO(message))
-                frame = await asyncio.to_thread(lcd.imageToFrame, img, True)
-                if frameBuffer.full():
-                    _ = frameBuffer.get_nowait()
-                await frameBuffer.put(frame)
+                frame = await asyncio.to_thread(lcd.image_to_frame, img, True)
+                if frame_buffer.full():
+                    _ = frame_buffer.get_nowait()
+                await frame_buffer.put(frame)
                 #print(f"[FRAME-RECEIVER] Queue size: {frameBuffer.qsize()}")
             except Exception as e:
                 print(f"[FRAME-RECEIVER] Encountered an error while getting a response: {e}")
@@ -29,27 +29,27 @@ async def handleConnection(websocket):
 
 async def run():
     print(f"[FRAME-RECEIVER] Starting WebSocket server on ws://localhost:{PORT}")
-    async with websockets.serve(handleConnection, "127.0.0.1", PORT):
+    async with websockets.serve(handle_connection, "127.0.0.1", PORT):
         await asyncio.Future()
 
-async def runXMLRPCServer():
+async def run_XMLRPC_server():
     server = SimpleXMLRPCServer(("localhost", PORT + 2), allow_none=True)
-    server.register_function(setFixedSpeed)
+    server.register_function(set_fixed_speed)
     print(f"[FRAME-RECEIVER] Hosting device handle on port {PORT + 2}")
     await server.serve_forever()
 
 async def main(LCD):
     global lcd
     lcd = LCD
-    lcd.setupStream()
-    writer = frameWriter.FrameWriter(frameBuffer, lcd)
+    lcd.setup_stream()
+    writer = framewriter.FrameWriter(frame_buffer, lcd)
     asyncio.create_task(writer.run())
-    asyncio.create_task(runXMLRPCServer())
+    asyncio.create_task(run_XMLRPC_server())
     await run()
 
-async def setFixedSpeed(channel, duty):
+async def set_fixed_speed(channel, duty):
     global lcd
-    lcd.setFixedSpeed(channel, duty)
+    lcd.set_fixed_speed(channel, duty)
 
 if __name__ == "__main__":
     if len(sys.argv) >= 4:
