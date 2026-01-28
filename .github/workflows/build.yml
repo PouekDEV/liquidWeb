@@ -28,18 +28,18 @@ jobs:
       - name: build
         shell: bash
         run: |
-          pyinstaller main.py --onefile --name=liquidWeb-cli --uac-admin -i "NONE"
+          pyinstaller main.py --onefile --name=liquidWeb-cli -i "NONE"
           pyinstaller frameReceiver.py --onefile --name=frame-receiver -i "NONE"
-          pyinstaller hardwareServer.py --name=hardware-server --uac-admin --add-data="$(python -c "import site; print(site.getsitepackages()[1])")\HardwareMonitor:HardwareMonitor" -i "NONE"
+          pyinstaller hardwareServer.py --name=hardware-server -i "NONE"
           cd integration-runner
           npm run package
       - name: package
         shell: bash
         run: |
           mkdir dist/modules
-          mv dist/frame-receiver.exe dist/modules/
+          mv dist/frame-receiver dist/modules/
           mv dist/hardware-server/ dist/modules/
-          mv integration-runner/out/integration-runner-win32-x64/ dist/modules/
+          mv integration-runner/out/integration-runner-linux-x64/ dist/modules/
       - uses: actions/upload-artifact@v4
         with:
           name: Artifacts

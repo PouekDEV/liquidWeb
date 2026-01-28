@@ -1,8 +1,7 @@
 import asyncio
-import driver
 
 class FrameWriter:
-    def __init__(self, frameBuffer: asyncio.Queue, lcd: driver.KrakenLCD):
+    def __init__(self, frameBuffer, lcd):
         self.frameBuffer = frameBuffer
         self.lcd = lcd
     async def run(self):

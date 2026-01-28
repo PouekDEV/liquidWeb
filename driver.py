@@ -2,10 +2,11 @@ from util import normalizeProfile, interpolateProfile, clamp
 from collections import namedtuple
 from PIL import Image, ImageDraw
 from enum import Enum, IntEnum
-from winusbcdc import WinUsbPy
 from typing import Tuple
 from io import BytesIO
 import q565_rust
+import usb.core
+import usb.util
 import time
 import math
 import hid
@@ -138,18 +139,21 @@ class KrakenLCD:
             self.serial = self.hidInfo["serial_number"]
             self.hidDev = hid.device()
             self.hidDev.open_path(self.hidInfo["path"])
-            self.bulkDev = WinUsbPy()
-
-            for device in self.bulkDev.list_usb_devices(
-                deviceinterface=True, present=True, findparent=True
-            ):
-                if (
-                    device.path.find("vid_{:x}&pid_{:x}".format(_NZXT_VID, self.pid))
-                    != -1
-                    and device.parent
-                    and device.parent.find(self.hidInfo["serial_number"]) != -1
-                ):
-                    self.bulkDev.init_winusb_device_with_path(device.path)
+            devices = usb.core.find(find_all=True, idVendor=_NZXT_VID, idProduct=self.pid)
+            self.bulkDev = None
+            for dev in devices:
+                try:
+                    serial = usb.util.get_string(dev, dev.iSerialNumber)
+                    if self.hidInfo["serial_number"] in serial:
+                        self.bulkDev = dev
+                        if self.bulkDev.is_kernel_driver_active(0):
+                            self.bulkDev.detach_kernel_driver(0)
+                        self.bulkDev.set_configuration()
+                        break
+                except Exception as e:
+                    continue
+            if self.bulkDev is None:
+                raise ValueError("Device not found or serial number mismatch.")
         except Exception:
             raise Exception("Could not connect to kraken device. Is NZXT CAM closed ?")
 

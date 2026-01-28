@@ -1,10 +1,6 @@
-# When fully migrating everything to Linux use psutil and hwmon
-
-from util import normalizeProfile, interpolateProfile
+from util import normalizeProfile, interpolateProfile, getCpuVendorAndModelName
 from driver import _CRITICAL_TEMPERATURE
 from aioxmlrpc.client import ServerProxy
-from HardwareMonitor.Hardware import *
-from HardwareMonitor.Util import *
 from aiohttp import web
 import asyncio
 import psutil
@@ -16,7 +12,29 @@ import os
 PORT = 54218
 _CRITICAL_TEMPERATURE_CPU = 99
 formatted = {
-    "cpus": [],
+    "cpus": [
+        {
+            "name": getCpuVendorAndModelName()[1],
+            "manufacturer": getCpuVendorAndModelName()[0],
+            "codeName": None,
+            "socket": None,
+            "load": psutil.cpu_percent(interval=None) / 100,
+            "numCores": psutil.cpu_count(logical=False),
+            "numThreads": psutil.cpu_count(),
+            "temperature": 0, #psutil.sensors_temperatures
+            "minTemperature": 0,
+            "maxTemperature": 0,
+            "frequency": psutil.cpu_freq()[0],
+            "minFrequency": psutil.cpu_freq()[1],
+            "maxFrequency": psutil.cpu_freq()[2],
+            "stockFrequency": None,
+            "fanSpeed": 0, # lm_sensors hopefully should give the required info
+            "minFanSpeed": 0,
+            "maxFanSpeed": 0,
+            "tdp": None,
+            "power": None
+        }
+    ],
     "gpus": [],
     "ram": {
         "totalSize": psutil.virtual_memory().total / 1024 / 1024,
@@ -24,10 +42,9 @@ formatted = {
         "modules": []
     },
     "kraken": {
-        "liquidTemperature": 0
+        "liquidTemperature": 0 #psutil.sensors_temperatures ?
     }
 }
-computer = OpenComputer(cpu=True, gpu=True, memory=True, controller=True)
 lcd = None
 config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0}
 dutySensors = ["cpu", "gpu", "liquid"]
@@ -39,138 +56,55 @@ lastUpdatedDuty = {
 }
 
 async def updateInfo():
-    minFrequency = -1
-    maxFrequency = 0
     while True:
-        await asyncio.to_thread(computer.Update)
-        data = ToBuiltinTypes(computer.Hardware)
-        hardwareList = json.loads(json.dumps(data))
-        formatted["cpus"] = []
-        formatted["gpus"] = []
-        for hardware in hardwareList:
-            cpu = {
-                "name": "",
-                "manufacturer": "",
-                "codeName": None,
-                "socket": None,
-                "load": 0,
-                "numCores": 0,
-                "numThreads": 0,
-                "temperature": 0,
-                "minTemperature": 0,
-                "maxTemperature": 0,
-                "frequency": 0,
-                "minFrequency": 0,
-                "maxFrequency": 0,
-                "stockFrequency": None,
-                "fanSpeed": 0,
-                "minFanSpeed": 0,
-                "maxFanSpeed": 0,
-                "tdp": None,
-                "power": 0
-            }
-            gpu = {
-                "name": "",
-                "load": 0,
-                "temperature": 0,
-                "minTemperature": 0,
-                "maxTemperature": 0,
-                "frequency": 0,
-                "minFrequency": 0,
-                "maxFrequency": 0,
-                "stockFrequency": None,
-                "fanSpeed": 0,
-                "minFanSpeed": 0,
-                "maxFanSpeed": 0,
-                "power": 0
-            }
-            if "Cpu" in hardware["HardwareType"]:
-                cpu["name"] = hardware["Name"]
-                sensors = hardware["Sensors"]
-                average = 0
-                maximum = 0
-                minimum = 0
-                if "intel" in cpu["name"].lower():
-                    cpu["manufacturer"] = "GenuineIntel"
-                if "amd" in cpu["name"].lower():
-                    cpu["manufacturer"] = "AuthenticAMD"
-                for sensor in sensors:
-                    try:
-                        t = sensor["SensorType"]
-                        n = sensor["Name"]
-                        if n == "CPU Total":
-                            cpu["load"] = sensor["Value"] / 100
-                        if t == "Load" and "CPU Core #" in n and "Thread #2" not in n:
-                            cpu["numCores"] += 1
-                        if t == "Load" and "CPU Core" in n and "Thread #1" in n:
-                            cpu["numThreads"] += 1
-                        if t == "Power" and n == "CPU Cores":
-                            cpu["power"] = sensor["Value"]
-                        if t == "Temperature" and n == "Core Average":
-                            cpu["temperature"] = sensor["Value"]
-                            cpu["minTemperature"] = sensor["Min"]
-                            cpu["maxTemperature"] = sensor["Max"]
-                        if t == "Clock":
-                            val = sensor["Value"]
-                            average += val
-                            if val > maximum:
-                                maximum = val
-                            if val < minimum:
-                                minimum = val
-                    except KeyError:
-                        continue
-                if cpu["numCores"]:
-                    average /= cpu["numCores"]
-                cpu["frequency"] = average
-                if average > maxFrequency:
-                    maxFrequency = average
-                if minFrequency == -1 or average < minFrequency:
-                    minFrequency = average
-                cpu["minFrequency"] = minFrequency
-                cpu["maxFrequency"] = maxFrequency
-                cpu["numThreads"] += cpu["numCores"]
-                formatted["cpus"].append(cpu)
-            if "Gpu" in hardware["HardwareType"]:
-                gpu["name"] = hardware["Name"]
-                sensors = hardware["Sensors"]
-                for sensor in sensors:
-                    try:
-                        t = sensor["SensorType"]
-                        n = sensor["Name"]
-                        if t == "Load" and n == "GPU Core":
-                            gpu["load"] = sensor["Value"] / 100
-                        if t == "Temperature" and n == "GPU Core":
-                            gpu["temperature"] = sensor["Value"]
-                            gpu["minTemperature"] = sensor["Min"]
-                            gpu["maxTemperature"] = sensor["Max"]
-                        if t == "Clock" and n == "GPU Core":
-                            gpu["frequency"] = sensor["Value"]
-                            gpu["minFrequency"] = sensor["Min"]
-                            gpu["maxFrequency"] = sensor["Max"]
-                        if t == "Fan" and n == "GPU Fan 1":
-                            gpu["fanSpeed"] = sensor["Value"]
-                            gpu["minFanSpeed"] = sensor["Min"]
-                            gpu["maxFanSpeed"] = sensor["Max"]
-                        if t == "Power" and n == "GPU Package":
-                            gpu["power"] = sensor["Value"]
-                    except KeyError:
-                        continue
-                formatted["gpus"].append(gpu)
-            if "Kraken" in hardware["Name"]:
-                sensors = hardware["Sensors"]
-                for sensor in sensors:
-                    try:
-                        t = sensor["SensorType"]
-                        n = sensor["Name"]
-                        if t == "Temperature" and n == "Liquid":
-                            formatted["kraken"]["liquidTemperature"] = sensor["Value"]
-                        if t == "Fan" and n == "Fans":
-                            # Nobody has more than one CPU right?
-                            formatted["cpus"][0]["fanSpeed"] = sensor["Value"]
-                            formatted["cpus"][0]["minFanSpeed"] = sensor["Min"]
-                            formatted["cpus"][0]["maxFanSpeed"] = sensor["Max"]
-                    except KeyError:
-                        continue
+        formatted["cpus"][0]["load"] = psutil.cpu_percent(interval=None) / 100
+        formatted["cpus"][0]["frequency"] = psutil.cpu_freq()[0]
+        formatted["cpus"][0]["minFrequency"] = psutil.cpu_freq()[1]
+        formatted["cpus"][0]["maxFrequency"] = psutil.cpu_freq()[2]
+        gpu = {
+            "name": "",
+            "load": 0,
+            "temperature": 0,
+            "minTemperature": 0,
+            "maxTemperature": 0,
+            "frequency": 0,
+            "minFrequency": 0,
+            "maxFrequency": 0,
+            "stockFrequency": None,
+            "fanSpeed": 0,
+            "minFanSpeed": 0,
+            "maxFanSpeed": 0,
+            "power": 0
+        }
+        # GPUs on Linux are tricky because there is no easy common API
+        # We could parse hwmon but is it really worth it?
+        # Maybe stick to something like nvidia-smi to get the data
+        #if "Gpu" in hardware["HardwareType"]:
+        #    gpu["name"] = hardware["Name"]
+        #    sensors = hardware["Sensors"]
+        #    for sensor in sensors:
+        #        try:
+        #            t = sensor["SensorType"]
+        #            n = sensor["Name"]
+        #            if t == "Load" and n == "GPU Core":
+        #                gpu["load"] = sensor["Value"] / 100
+        #            if t == "Temperature" and n == "GPU Core":
+        #                gpu["temperature"] = sensor["Value"]
+        #                gpu["minTemperature"] = sensor["Min"]
+        #                gpu["maxTemperature"] = sensor["Max"]
+        #            if t == "Clock" and n == "GPU Core":
+        #                gpu["frequency"] = sensor["Value"]
+        #                gpu["minFrequency"] = sensor["Min"]
+        #                gpu["maxFrequency"] = sensor["Max"]
+        #            if t == "Fan" and n == "GPU Fan 1":
+        #                gpu["fanSpeed"] = sensor["Value"]
+        #                gpu["minFanSpeed"] = sensor["Min"]
+        #                gpu["maxFanSpeed"] = sensor["Max"]
+        #            if t == "Power" and n == "GPU Package":
+        #                gpu["power"] = sensor["Value"]
+        #        except KeyError:
+        #            continue
+        #    formatted["gpus"].append(gpu)
         formatted["gpus"].reverse()
         formatted["ram"]["inUse"] = psutil.virtual_memory().used / 1024 / 1024
         await checkCurves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])

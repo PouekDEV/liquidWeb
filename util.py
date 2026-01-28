@@ -1,3 +1,5 @@
+import re
+
 # Gracefully taken from liquidctl
 
 def normalizeProfile(profile, critx, max_value=100):
@@ -30,3 +32,16 @@ def clamp(value, clampmin, clampmax):
     return clamped
 
 # ---
+
+def getCpuVendorAndModelName():
+    vendorId = ""
+    modelName = ""
+    with open("/proc/cpuinfo", "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if "vendor_id" in line:
+                vendorId = re.sub(".*vendor_id.*: ", "", line).replace("\n","")
+            if "model name" in line:
+                modelName = re.sub(".*model name.*: ", "", line).replace("\n","")
+                break
+    return (vendorId, modelName)
