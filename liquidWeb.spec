@@ -60,5 +60,5 @@ systemctl daemon-reload
 /lib/systemd/system/liquidWeb-hardware-server.service
 
 %changelog
-* Tue Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
+* Wed Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
 - Test

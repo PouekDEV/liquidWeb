@@ -44,9 +44,10 @@ jobs:
                 cp systemd/*.target dist/liquidWeb/systemd/
             - name: prepare rpm sources
               run: |
+                VERSION=$(rpmspec -q --qf '%{version}' liquidWeb.spec)
                 mkdir -p rpmbuild/SOURCES
-                cp -r dist/liquidWeb liquidWeb
-                tar czf rpmbuild/SOURCES/liquidWeb.tar.gz liquidWeb
+                cp -r dist/liquidWeb liquidWeb-$VERSION
+                tar czf rpmbuild/SOURCES/liquidWeb-$VERSION.tar.gz liquidWeb-$VERSION
             - name: build rpm
               run: |
                 rpmbuild \
