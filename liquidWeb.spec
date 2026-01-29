@@ -24,6 +24,7 @@ Services are managed via systemd using liquidWeb.target.
 %install
 # Create base dir
 mkdir -p %{buildroot}/usr/lib/liquidWeb
+mkdir -p %{buildroot}/lib/systemd/system
 
 # Binaries
 install -Dm755 bin/frame-receiver %{buildroot}/usr/lib/liquidWeb/frame-receiver
@@ -33,8 +34,8 @@ install -Dm755 bin/hardware-server %{buildroot}/usr/lib/liquidWeb/hardware-serve
 cp -a integration-runner %{buildroot}/usr/lib/liquidWeb/
 
 # systemd units
-install -Dm644 systemd/*.service %{buildroot}/lib/systemd/system/
-install -Dm644 systemd/*.target  %{buildroot}/lib/systemd/system/
+install -m644 systemd/*.service %{buildroot}/lib/systemd/system/
+install -m644 systemd/*.target  %{buildroot}/lib/systemd/system/
 
 %post
 systemctl daemon-reload
@@ -60,5 +61,5 @@ systemctl daemon-reload
 /lib/systemd/system/liquidWeb-hardware-server.service
 
 %changelog
-* Wed Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
+* Thu Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
 - Test
