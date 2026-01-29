@@ -34,19 +34,16 @@ _COMMON_WRITE_HEADER = [
 
 Resolution = namedtuple("Resolution", ["width", "height"])
 
-
 class RENDERING_MODE(str, Enum):
     RGBA = "RGBA"
     GIF = "GIF"
     FAST_GIF = "FAST_GIF"
     Q565 = "Q565"
 
-
 class DISPLAY_MODE(IntEnum):
     LIQUID = 2
     BUCKET = 4
     FAST_BUCKET = 5
-
 
 SUPPORTED_DEVICES = [
     {
@@ -90,7 +87,6 @@ SUPPORTED_DEVICES = [
     }
 ]
 
-
 class KrakenLCD:
     pid: int
     serial: str
@@ -107,7 +103,6 @@ class KrakenLCD:
     buckets_to_use = 2
     black: Image.Image
     mask: Image.Image
-
     cache = None
 
     def __init__(self, brightness, orientation):
@@ -126,7 +121,7 @@ class KrakenLCD:
                     dev["maxBucketSize"],
                     (self.resolution.width * self.resolution.height * 4),
                 )
-                self.buckets_to_use = max(self.totalBuckets, 2)
+                self.buckets_to_use = max(self.total_buckets, 2)
                 self.brightness = brightness
                 self.orientation = orientation
                 self.speed_channels = dev["speedChannels"]
@@ -155,7 +150,8 @@ class KrakenLCD:
             if self.bulk_dev is None:
                 raise ValueError("Device not found or serial number mismatch.")
         except Exception:
-            raise Exception("Could not connect to kraken device. Is NZXT CAM closed ?")
+            # https://github.com/liquidctl/liquidctl/blob/main/extra/linux/71-liquidctl.rules
+            raise Exception("Could not connect to kraken device. Do you have the required permissions?")
 
         self.black = Image.new("RGBA", self.resolution, (0, 0, 0, 0))
         self.mask = Image.new("RGBA", self.resolution, (0, 0, 0, 0))
@@ -279,8 +275,7 @@ class KrakenLCD:
     def delete_all_buckets(self):
         for bucket in range(self.total_buckets):
             for i in range(10):
-                status = self.deleteBucket(bucket, i)
-
+                status = self.delete_bucket(bucket, i)
                 if status:
                     break
                 time.sleep(0.1)
@@ -312,7 +307,7 @@ class KrakenLCD:
         status = self.read_until({b"\x33\x01": self.parse_standard_result})
         return status
 
-    def write_RGBA(self, RGBAData: bytes, bucket: int) -> bool:
+    def write_RGBA(self, RGBA_data: bytes, bucket: int) -> bool:
         self.write([0x36, 0x01, bucket])
         status = self.read_until({b"\x37\x01": self.parse_standard_result})
         if not status:
@@ -326,11 +321,11 @@ class KrakenLCD:
                 0x00,
                 0x00,
             ]
-            + list(len(RGBAData).to_bytes(4, "little"))
+            + list(len(RGBA_data).to_bytes(4, "little"))
         )
 
         self.bulk_write(bytes(header))
-        self.bulk_write(RGBAData)
+        self.bulk_write(RGBA_data)
 
         self.write([0x36, 0x02, bucket])
         status = self.read_until({b"\x37\x02": self.parse_standard_result})
@@ -402,7 +397,6 @@ class KrakenLCD:
                     self.next_frame_bucket * ((self.max_RGBA_bucket_size) / 1024 + 1)
                 ).to_bytes(2, "little")
             )
-
             result = (
                 (
                     self.delete_bucket(self.next_frame_bucket)

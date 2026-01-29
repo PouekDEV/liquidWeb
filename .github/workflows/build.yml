@@ -1,5 +1,5 @@
 name: build
-on: [workflow_dispatch]
+on: [push, workflow_dispatch]
 
 jobs:
   build-for-linux:
@@ -28,9 +28,9 @@ jobs:
       - name: build
         shell: bash
         run: |
-          pyinstaller main.py --onefile --name=liquidWeb-cli -i "NONE"
-          pyinstaller framereceiver.py --onefile --name=frame-receiver -i "NONE"
-          pyinstaller hardwareserver.py --name=hardware-server -i "NONE"
+          pyinstaller main.py --onefile --name=liquidWeb-cli
+          pyinstaller framereceiver.py --onefile --name=frame-receiver
+          pyinstaller hardwareserver.py --onefile --name=hardware-server
           cd integration-runner
           npm run package
       - name: package
