@@ -29,9 +29,6 @@ else:
     not_enough_arguments()
 if arguments_count >= 6:
     fps = sys.argv[3]
-    if fps > 30:
-        print("[MAIN] Can't set more than 30 fps")
-        fps = 30
     brightness = sys.argv[4]
     orientation = sys.argv[5]
 else:
