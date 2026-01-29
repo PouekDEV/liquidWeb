@@ -36,10 +36,10 @@ jobs:
       - name: package
         shell: bash
         run: |
-          mkdir dist/modules
-          mv dist/frame-receiver dist/modules/
-          mv dist/hardware-server/ dist/modules/
-          mv integration-runner/out/integration-runner-linux-x64/ dist/modules/
+          mkdir ./dist/modules
+          mv ./dist/frame-receiver ./dist/modules/
+          mv ./dist/hardware-server/ ./dist/modules/
+          mv ./integration-runner/out/integration-runner-linux-x64/ ./dist/modules/
       - uses: actions/upload-artifact@v4
         with:
           name: Artifacts
