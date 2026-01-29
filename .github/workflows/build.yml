@@ -2,45 +2,57 @@ name: build
 on: [push, workflow_dispatch]
 
 jobs:
-  build-for-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@v4
-      - name: setup python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-      - name: setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          cache-dependency-path: integration-runner/package-lock.json
-          node-version: 22.1
-          cache: npm
-      - name: install dependencies
-        shell: bash
-        run: |
-          pip install -r requirements.txt --upgrade
-          maturin build --release
-          pip install $(find ./target/wheels/*.whl)
-          cd integration-runner
-          npm i
-      - name: build
-        shell: bash
-        run: |
-          pyinstaller main.py --onefile --name=liquidWeb-cli
-          pyinstaller framereceiver.py --onefile --name=frame-receiver
-          pyinstaller hardwareserver.py --onefile --name=hardware-server
-          cd integration-runner
-          npm run package
-      - name: package
-        shell: bash
-        run: |
-          mkdir ./dist/modules
-          mv ./dist/frame-receiver ./dist/modules/
-          mv ./dist/hardware-server ./dist/modules/
-          mv ./integration-runner/out/integration-runner-linux-x64/ ./dist/modules/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Artifacts
-          path: dist/*
+    build-rpm:
+        runs-on: ubuntu-latest
+        steps:
+            - name: checkout repository
+              uses: actions/checkout@v4
+            - name: setup python
+              uses: actions/setup-python@v4
+              with:
+                python-version: 3.12
+            - name: setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                cache-dependency-path: integration-runner/package-lock.json
+                node-version: 22.1
+                cache: npm
+            - name: install rpm tooling
+              run: sudo apt-get update && sudo apt-get install -y rpm
+            - name: install dependencies
+              run: |
+                pip install -r requirements.txt --upgrade
+                maturin build --release
+                pip install $(find ./target/wheels/*.whl)
+                cd integration-runner
+                npm i
+            - name: build
+              run: |
+                pyinstaller framereceiver.py --onefile --name=frame-receiver
+                pyinstaller hardwareserver.py --onefile --name=hardware-server
+                cd integration-runner
+                npm run package
+            - name: package
+              run: |
+                mkdir -p dist/liquidWeb
+                mkdir -p dist/liquidWeb/bin
+                mkdir -p dist/liquidWeb/systemd
+                mv dist/frame-receiver dist/liquidWeb/bin/
+                mv dist/hardware-server dist/liquidWeb/bin/
+                mv integration-runner/out/integration-runner-linux-x64 dist/liquidWeb/integration-runner
+                cp systemd/*.service dist/liquidWeb/systemd/
+                cp systemd/*.target dist/liquidWeb/systemd/
+            - name: prepare rpm sources
+              run: |
+                mkdir -p rpmbuild/SOURCES
+                cp -r dist/liquidWeb liquidWeb
+                tar czf rpmbuild/SOURCES/liquidWeb.tar.gz liquidWeb
+            - name: build rpm
+              run: |
+                rpmbuild \
+                    --define "_topdir $(pwd)/rpmbuild" \
+                    -ba liquidWeb.spec
+            - uses: actions/upload-artifact@v4
+              with:
+                name: liquidWeb-rpm
+                path: rpmbuild/RPMS/**/*.rpm

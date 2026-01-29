@@ -1,0 +1,22 @@
+[Unit]
+Description=liquidWeb Integration Runner
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/liquidWeb/integration-runner/integration-runner \
+    --width=640 \
+    --height=640 \
+    --fps=30 \
+    --configuration=0 \
+    --url=https://www.pouekdev.one/nzxt-integration/ \
+    --port=54217
+Restart=on-failure
+RestartSec=1
+KillSignal=SIGTERM
+TimeoutStopSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=liquidWeb.target
