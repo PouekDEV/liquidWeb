@@ -28,8 +28,8 @@ jobs:
                 npm i
             - name: build
               run: |
-                pyinstaller framereceiver.py --onefile --name=frame-receiver
-                pyinstaller hardwareserver.py --onefile --name=hardware-server
+                pyinstaller framereceiver.py --onedir --name=frame-receiver
+                pyinstaller hardwareserver.py --onedir --name=hardware-server
                 cd integration-runner
                 npm run package
             - name: package
@@ -42,6 +42,7 @@ jobs:
                 mv integration-runner/out/integration-runner-linux-x64 dist/liquidWeb/integration-runner
                 cp systemd/*.service dist/liquidWeb/systemd/
                 cp systemd/*.target dist/liquidWeb/systemd/
+                cp 99-liquidWeb.rules dist/liquidWeb/
             - name: prepare rpm sources
               run: |
                 VERSION=$(rpmspec -q --qf '%{version}' liquidWeb.spec)
