@@ -3,8 +3,10 @@ Description=liquidWeb Integration Runner
 After=network.target
 
 [Service]
+User=liquidWeb
+Group=liquidWeb
 Type=simple
-ExecStart=/usr/lib/liquidWeb/integration-runner/integration-runner \
+ExecStart=/usr/bin/xvfb-run --server-args="-screen 0 800x600x24" /usr/lib/liquidWeb/integration-runner/integration-runner \
     --width=640 \
     --height=640 \
     --fps=30 \

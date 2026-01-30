@@ -7,7 +7,6 @@ import psutil
 import math
 import json
 import sys
-import os
 
 PORT = 54218
 _CRITICAL_TEMPERATURE_CPU = 99
@@ -48,7 +47,7 @@ formatted = {
 lcd = None
 config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0}
 duty_sensors = ["cpu", "gpu", "liquid"]
-file_path = os.path.dirname(os.path.abspath(__file__))
+file_path = "/var/lib/liquidWeb"
 cpu_temps = [0] * 4
 last_updated_duty = {
     "fan": 0,

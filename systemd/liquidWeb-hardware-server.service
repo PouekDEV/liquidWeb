@@ -5,6 +5,8 @@ Requires=liquidWeb-frame-receiver.service
 PartOf=liquidWeb-frame-receiver.service
 
 [Service]
+User=liquidWeb
+Group=liquidWeb
 Type=simple
 ExecStart=/usr/lib/liquidWeb/hardware-server 54218
 Restart=on-failure

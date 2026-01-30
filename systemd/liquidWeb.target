@@ -2,3 +2,6 @@
 Description=liquidWeb Full
 Requires=liquidWeb-integration-runner.service liquidWeb-frame-receiver.service liquidWeb-hardware-server.service
 After=network.target
+
+[Install]
+WantedBy=multi-user.target

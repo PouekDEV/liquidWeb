@@ -9,56 +9,57 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      x86_64
 Requires:       systemd
+Requires:       xorg-x11-server-Xvfb
+Requires(pre):  shadow-utils
 
 %description
-Linux Kraken Elite 2023 LCD web integration displayer
-
+Linux Kraken Elite 2023 LCD web integration displayer.
 Services are managed via systemd using liquidWeb.target.
 
 %prep
 %autosetup
 
+%pre
+getent group liquidWeb >/dev/null || groupadd -r liquidWeb
+getent passwd liquidWeb >/dev/null || \
+    useradd -r -g liquidWeb -d /var/lib/liquidWeb -s /sbin/nologin \
+    -c "liquidWeb system user" liquidWeb
+exit 0
+
 %build
 # Nothing to build
 
 %install
-# Create base dir
-mkdir -p %{buildroot}/usr/lib/liquidWeb
-mkdir -p %{buildroot}/lib/systemd/system
+mkdir -p %{buildroot}%{_prefix}/lib/liquidWeb
+mkdir -p %{buildroot}%{_unitdir}
+mkdir -p %{buildroot}%{_sharedstatedir}/liquidWeb
 
-# Binaries
-install -Dm755 bin/frame-receiver %{buildroot}/usr/lib/liquidWeb/frame-receiver
-install -Dm755 bin/hardware-server %{buildroot}/usr/lib/liquidWeb/hardware-server
+install -Dm755 bin/frame-receiver %{buildroot}%{_prefix}/lib/liquidWeb/frame-receiver
+install -Dm755 bin/hardware-server %{buildroot}%{_prefix}/lib/liquidWeb/hardware-server
 
-# Electron app (directory)
-cp -a integration-runner %{buildroot}/usr/lib/liquidWeb/
+cp -a integration-runner %{buildroot}%{_prefix}/lib/liquidWeb/
 
-# systemd units
-install -m644 systemd/*.service %{buildroot}/lib/systemd/system/
-install -m644 systemd/*.target  %{buildroot}/lib/systemd/system/
+install -p -m 644 systemd/*.service %{buildroot}%{_unitdir}/
+install -p -m 644 systemd/*.target  %{buildroot}%{_unitdir}/
 
 %post
-systemctl daemon-reload
-systemctl enable liquidWeb.target || true
+%systemd_post liquidWeb.target
 
 %preun
-if [ $1 -eq 0 ]; then
-    systemctl disable liquidWeb.target || true
-    systemctl stop liquidWeb.target || true
-fi
+%systemd_preun liquidWeb.target
 
 %postun
-systemctl daemon-reload
+%systemd_postun_with_restart liquidWeb.target
 
 %files
-/usr/lib/liquidWeb/frame-receiver
-/usr/lib/liquidWeb/hardware-server
-/usr/lib/liquidWeb/integration-runner
+%{_prefix}/lib/liquidWeb/
+%{_unitdir}/liquidWeb.target
+%{_unitdir}/liquidWeb-integration-runner.service
+%{_unitdir}/liquidWeb-frame-receiver.service
+%{_unitdir}/liquidWeb-hardware-server.service
 
-/lib/systemd/system/liquidWeb.target
-/lib/systemd/system/liquidWeb-integration-runner.service
-/lib/systemd/system/liquidWeb-frame-receiver.service
-/lib/systemd/system/liquidWeb-hardware-server.service
+%dir %attr(0755, liquidWeb, liquidWeb) %{_sharedstatedir}/liquidWeb
+%ghost %attr(0644, liquidWeb, liquidWeb) %{_sharedstatedir}/liquidWeb/curves.json
 
 %changelog
 * Thu Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1

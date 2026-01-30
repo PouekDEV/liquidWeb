@@ -4,6 +4,8 @@ After=network.target liquidWeb-integration-runner.service
 Wants=liquidWeb-integration-runner.service
 
 [Service]
+User=liquidWeb
+Group=liquidWeb
 Type=simple
 ExecStart=/usr/lib/liquidWeb/frame-receiver 50 90 54217
 Restart=on-failure
