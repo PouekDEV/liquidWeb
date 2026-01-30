@@ -14,9 +14,6 @@ let framerate = parseInt(app.commandLine.getSwitchValue("fps"));
 const url = app.commandLine.getSwitchValue("url");
 const configuration = boolean(app.commandLine.getSwitchValue("configuration"));
 let PORT = undefined;
-const sharedDataPath = "/var/lib/liquidWeb/.config/integration-runner";
-
-app.setPath("userData", sharedDataPath);
 
 if(!configuration && !app.commandLine.hasSwitch("port")){
     console.log("[INTEGRATION-RUNNER] Port hasn't been provided");
