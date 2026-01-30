@@ -7,10 +7,12 @@ License:        GPL-3.0
 URL:            https://github.com/PouekDEV/liquidWeb
 Source0:        %{name}-%{version}.tar.gz
 
+AutoReqProv:    no
 BuildArch:      x86_64
 Requires:       systemd
 Requires:       xorg-x11-server-Xvfb
 Requires:       /usr/bin/udevadm
+Requires:       policycoreutils-python-utils
 Requires(pre):  shadow-utils
 
 %description
