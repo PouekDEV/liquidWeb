@@ -30,17 +30,17 @@ exit 0
 # Nothing to build
 
 %install
-mkdir -p %{buildroot}%{_prefix}/lib/liquidWeb
-mkdir -p %{buildroot}%{_unitdir}
-mkdir -p %{buildroot}%{_sharedstatedir}/liquidWeb
+mkdir -p %{buildroot}/usr/lib/liquidWeb
+mkdir -p %{buildroot}/usr/lib/systemd/system
+mkdir -p %{buildroot}/var/lib/liquidWeb
 
-install -Dm755 bin/frame-receiver %{buildroot}%{_prefix}/lib/liquidWeb/frame-receiver
-install -Dm755 bin/hardware-server %{buildroot}%{_prefix}/lib/liquidWeb/hardware-server
+install -Dm755 bin/frame-receiver %{buildroot}/usr/lib/liquidWeb/frame-receiver
+install -Dm755 bin/hardware-server %{buildroot}/usr/lib/liquidWeb/hardware-server
 
-cp -a integration-runner %{buildroot}%{_prefix}/lib/liquidWeb/
+cp -a integration-runner %{buildroot}/usr/lib/liquidWeb/
 
-install -p -m 644 systemd/*.service %{buildroot}%{_unitdir}/
-install -p -m 644 systemd/*.target  %{buildroot}%{_unitdir}/
+install -p -m 644 systemd/*.service %{buildroot}/usr/lib/systemd/system/
+install -p -m 644 systemd/*.target  %{buildroot}/usr/lib/systemd/system/
 
 %post
 %systemd_post liquidWeb.target
@@ -52,14 +52,17 @@ install -p -m 644 systemd/*.target  %{buildroot}%{_unitdir}/
 %systemd_postun_with_restart liquidWeb.target
 
 %files
-%{_prefix}/lib/liquidWeb/
-%{_unitdir}/liquidWeb.target
-%{_unitdir}/liquidWeb-integration-runner.service
-%{_unitdir}/liquidWeb-frame-receiver.service
-%{_unitdir}/liquidWeb-hardware-server.service
+/usr/lib/liquidWeb/frame-receiver
+/usr/lib/liquidWeb/hardware-server
+/usr/lib/liquidWeb/integration-runner/
 
-%dir %attr(0755, liquidWeb, liquidWeb) %{_sharedstatedir}/liquidWeb
-%ghost %attr(0644, liquidWeb, liquidWeb) %{_sharedstatedir}/liquidWeb/curves.json
+/usr/lib/systemd/system/liquidWeb.target
+/usr/lib/systemd/system/liquidWeb-integration-runner.service
+/usr/lib/systemd/system/liquidWeb-frame-receiver.service
+/usr/lib/systemd/system/liquidWeb-hardware-server.service
+
+%dir %attr(0755, liquidWeb, liquidWeb) /var/lib/liquidWeb
+%ghost %attr(0644, liquidWeb, liquidWeb) /var/lib/liquidWeb/curves.json
 
 %changelog
 * Thu Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
