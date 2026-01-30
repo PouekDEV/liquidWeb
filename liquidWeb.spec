@@ -37,6 +37,7 @@ mkdir -p %{buildroot}/usr/lib/liquidWeb
 mkdir -p %{buildroot}/usr/lib/systemd/system
 mkdir -p %{buildroot}/var/lib/liquidWeb
 mkdir -p %{buildroot}/etc/udev/rules.d
+mkdir -p %{buildroot}/var/lib/liquidWeb/.config/integration-runner
 
 cp -a bin/frame-receiver %{buildroot}/usr/lib/liquidWeb/
 cp -a bin/hardware-server %{buildroot}/usr/lib/liquidWeb/
@@ -49,6 +50,7 @@ install -p -m 644 99-liquidWeb.rules %{buildroot}/etc/udev/rules.d/
 %post
 semanage fcontext -a -t bin_t "/usr/lib/liquidWeb(/.*)?" 2>/dev/null || :
 restorecon -R /usr/lib/liquidWeb || :
+chmod -R 2775 /var/lib/liquidWeb/.config
 udevadm control --reload && udevadm trigger || :
 systemctl daemon-reload
 systemctl enable liquidWeb.target || true
@@ -78,6 +80,9 @@ systemctl daemon-reload
 %dir %attr(0755, liquidWeb, liquidWeb) /var/lib/liquidWeb
 %ghost %attr(0644, liquidWeb, liquidWeb) /var/lib/liquidWeb/curves.json
 %config(noreplace) /etc/udev/rules.d/99-liquidWeb.rules
+%dir %attr(2775, liquidWeb, liquidWeb) /var/lib/liquidWeb
+%dir %attr(2775, liquidWeb, liquidWeb) /var/lib/liquidWeb/.config
+%dir %attr(2775, liquidWeb, liquidWeb) /var/lib/liquidWeb/.config/integration-runner
 
 %changelog
 * Thu Jan 29 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
