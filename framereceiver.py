@@ -1,6 +1,5 @@
 from aioxmlrpc.server import SimpleXMLRPCServer
 from PIL import Image
-import framewriter
 import websockets
 import asyncio
 import driver
@@ -10,6 +9,20 @@ import io
 lcd = None
 frame_buffer = asyncio.Queue(maxsize=10)
 PORT = 54217
+
+class FrameWriter:
+    def __init__(self, frame_buffer, lcd):
+        self.frame_buffer = frame_buffer
+        self.lcd = lcd
+    async def run(self):
+        while True:
+            await self.on_frame()
+    async def on_frame(self):
+        frame = await self.frame_buffer.get()
+        try:
+            await asyncio.to_thread(self.lcd.write_frame, frame)
+        except Exception:
+            pass
 
 async def handle_connection(websocket):
     print("[FRAME-RECEIVER] Connected to integration runner")
@@ -42,7 +55,7 @@ async def main(LCD):
     global lcd
     lcd = LCD
     lcd.setup_stream()
-    writer = framewriter.FrameWriter(frame_buffer, lcd)
+    writer = FrameWriter(frame_buffer, lcd)
     asyncio.create_task(writer.run())
     asyncio.create_task(run_XMLRPC_server())
     await run()
