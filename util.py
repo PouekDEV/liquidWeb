@@ -1,4 +1,5 @@
 import re
+import subprocess
 
 # Gracefully taken from liquidctl
 
@@ -45,3 +46,25 @@ def cpu_vendor_and_model_name():
                 model_name = re.sub(".*model name.*: ", "", line).replace("\n","")
                 break
     return (vendor_id, model_name)
+
+def get_video_adapters():
+    return subprocess.check_output("lspci -k | grep -EA3 'VGA|3D|Display'", shell=True, text=True)
+
+def get_intel_integrated_graphics_name():
+    if intel_integrated_graphics_present():
+        adapters = get_video_adapters()
+        place = adapters.find("[")
+        intel = adapters[place + 1:]
+        intel = intel.split("]")[0]
+        return intel
+    return None
+
+def intel_integrated_graphics_present():
+    if "Intel" in get_video_adapters():
+        return True
+    return False
+
+def is_nvidia_present():
+    if "NVIDIA" in get_video_adapters():
+        return True
+    return False

@@ -48,6 +48,7 @@ async def run():
 async def run_XMLRPC_server():
     server = SimpleXMLRPCServer(("localhost", PORT + 2), allow_none=True)
     server.register_function(set_fixed_speed)
+    server.register_function(get_stats)
     print(f"[FRAME-WRITER] Hosting device handle on port {PORT + 2}")
     await server.serve_forever()
 
@@ -63,6 +64,10 @@ async def main(LCD):
 async def set_fixed_speed(channel, duty):
     global lcd
     lcd.set_fixed_speed(channel, duty)
+
+async def get_stats():
+    global lcd
+    return lcd.get_stats()
 
 if __name__ == "__main__":
     if len(sys.argv) >= 4:

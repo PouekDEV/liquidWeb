@@ -1,15 +1,25 @@
-from util import normalize_profile, interpolate_profile, cpu_vendor_and_model_name
+from util import normalize_profile, interpolate_profile, cpu_vendor_and_model_name, intel_integrated_graphics_present, is_nvidia_present, get_intel_integrated_graphics_name
 from driver import _CRITICAL_TEMPERATURE
 from aioxmlrpc.client import ServerProxy
 from aiohttp import web
+from pynvml import *
 import asyncio
 import psutil
 import math
 import json
+import copy
 import sys
 
 PORT = 54218
 _CRITICAL_TEMPERATURE_CPU = 99
+
+if not is_nvidia_present():
+    raise Exception("No NVIDIA GPU detected")
+else:
+    nvmlInit()
+
+intel_integrated = intel_integrated_graphics_present()
+
 formatted = {
     "cpus": [
         {
@@ -17,17 +27,17 @@ formatted = {
             "manufacturer": cpu_vendor_and_model_name()[0],
             "codeName": None,
             "socket": None,
-            "load": psutil.cpu_percent(interval=None) / 100,
+            "load": psutil.cpu_percent() / 100,
             "numCores": psutil.cpu_count(logical=False),
             "numThreads": psutil.cpu_count(),
-            "temperature": 0, #psutil.sensors_temperatures
+            "temperature": psutil.sensors_temperatures()["coretemp"][0].current,
             "minTemperature": 0,
             "maxTemperature": 0,
             "frequency": psutil.cpu_freq()[0],
             "minFrequency": psutil.cpu_freq()[1],
             "maxFrequency": psutil.cpu_freq()[2],
             "stockFrequency": None,
-            "fanSpeed": 0, # lm_sensors hopefully should give the required info
+            "fanSpeed": 0, # can't get this data from psutil since kraken's handle is taken while frame writer is running
             "minFanSpeed": 0,
             "maxFanSpeed": 0,
             "tdp": None,
@@ -41,7 +51,7 @@ formatted = {
         "modules": []
     },
     "kraken": {
-        "liquidTemperature": 0 #psutil.sensors_temperatures ?
+        "liquidTemperature": 0 # same thing as above
     }
 }
 lcd = None
@@ -53,61 +63,80 @@ last_updated_duty = {
     "fan": 0,
     "pump": 0
 }
+# For parity with Windows we don't get any data for this GPU
+gpu = {
+    "name": f"Intel(R) {get_intel_integrated_graphics_name()}",
+    "load": 0,
+    "temperature": 0,
+    "minTemperature": 0,
+    "maxTemperature": 0,
+    "frequency": 0,
+    "minFrequency": 0,
+    "maxFrequency": 0,
+    "stockFrequency": None,
+    "fanSpeed": 0,
+    "minFanSpeed": 0,
+    "maxFanSpeed": 0,
+    "power": 0
+}
+if intel_integrated:
+    formatted["gpus"].append(copy.copy(gpu))
+formatted["gpus"].append(gpu)
 
 async def update_info():
     while True:
-        formatted["cpus"][0]["load"] = psutil.cpu_percent(interval=None) / 100
+        # Nobody has more than one CPU right?
+        formatted["cpus"][0]["load"] = psutil.cpu_percent() / 100
+        formatted["cpus"][0]["temperature"] = float(psutil.sensors_temperatures()["coretemp"][0].current)
+        if formatted["cpus"][0]["temperature"] < formatted["cpus"][0]["minTemperature"] or formatted["cpus"][0]["minTemperature"] == 0:
+            formatted["cpus"][0]["minTemperature"] = formatted["cpus"][0]["temperature"]
+        if formatted["cpus"][0]["temperature"] > formatted["cpus"][0]["maxTemperature"]:
+            formatted["cpus"][0]["maxTemperature"] = formatted["cpus"][0]["temperature"]
+        if formatted["cpus"][0]["fanSpeed"] < formatted["cpus"][0]["minFanSpeed"] or formatted["cpus"][0]["minFanSpeed"] == 0:
+            formatted["cpus"][0]["minFanSpeed"] = formatted["cpus"][0]["fanSpeed"]
+        if formatted["cpus"][0]["fanSpeed"] > formatted["cpus"][0]["maxFanSpeed"]:
+            formatted["cpus"][0]["maxFanSpeed"] = formatted["cpus"][0]["fanSpeed"]
         formatted["cpus"][0]["frequency"] = psutil.cpu_freq()[0]
         formatted["cpus"][0]["minFrequency"] = psutil.cpu_freq()[1]
         formatted["cpus"][0]["maxFrequency"] = psutil.cpu_freq()[2]
-        gpu = {
-            "name": "",
-            "load": 0,
-            "temperature": 0,
-            "minTemperature": 0,
-            "maxTemperature": 0,
-            "frequency": 0,
-            "minFrequency": 0,
-            "maxFrequency": 0,
-            "stockFrequency": None,
-            "fanSpeed": 0,
-            "minFanSpeed": 0,
-            "maxFanSpeed": 0,
-            "power": 0
-        }
-        # GPUs on Linux are tricky because there is no easy common API
-        # We could parse hwmon but is it really worth it?
-        # Maybe stick to something like nvidia-smi to get the data
-        #if "Gpu" in hardware["HardwareType"]:
-        #    gpu["name"] = hardware["Name"]
-        #    sensors = hardware["Sensors"]
-        #    for sensor in sensors:
-        #        try:
-        #            t = sensor["SensorType"]
-        #            n = sensor["Name"]
-        #            if t == "Load" and n == "GPU Core":
-        #                gpu["load"] = sensor["Value"] / 100
-        #            if t == "Temperature" and n == "GPU Core":
-        #                gpu["temperature"] = sensor["Value"]
-        #                gpu["minTemperature"] = sensor["Min"]
-        #                gpu["maxTemperature"] = sensor["Max"]
-        #            if t == "Clock" and n == "GPU Core":
-        #                gpu["frequency"] = sensor["Value"]
-        #                gpu["minFrequency"] = sensor["Min"]
-        #                gpu["maxFrequency"] = sensor["Max"]
-        #            if t == "Fan" and n == "GPU Fan 1":
-        #                gpu["fanSpeed"] = sensor["Value"]
-        #                gpu["minFanSpeed"] = sensor["Min"]
-        #                gpu["maxFanSpeed"] = sensor["Max"]
-        #            if t == "Power" and n == "GPU Package":
-        #                gpu["power"] = sensor["Value"]
-        #        except KeyError:
-        #            continue
-        #    formatted["gpus"].append(gpu)
-        formatted["gpus"].reverse()
+        order = 0
+        if intel_integrated:
+            order = 1
+        # We don't check for more than one GPU
+        handle = nvmlDeviceGetHandleByIndex(0)
+        formatted["gpus"][order]["name"] = nvmlDeviceGetName(handle)
+        formatted["gpus"][order]["load"] = nvmlDeviceGetUtilizationRates(handle).gpu
+        formatted["gpus"][order]["temperature"] = float(nvmlDeviceGetTemperatureV(handle, 0))
+        if formatted["gpus"][order]["temperature"] < formatted["gpus"][order]["minTemperature"] or formatted["gpus"][order]["minTemperature"] == 0:
+            formatted["gpus"][order]["minTemperature"] = formatted["gpus"][order]["temperature"]
+        if formatted["gpus"][order]["temperature"] > formatted["gpus"][order]["maxTemperature"]:
+            formatted["gpus"][order]["maxTemperature"] = formatted["gpus"][order]["temperature"]
+        clocks = nvmlDeviceGetCurrentClockFreqs(handle)
+        formatted["gpus"][order]["frequency"] = float(clocks.split(",")[0].split("=")[1])
+        formatted["gpus"][order]["minFrequency"] = float(clocks.split(",")[1].split("=")[1])
+        formatted["gpus"][order]["maxFrequency"] = float(clocks.split(",")[2].split("=")[1])
+        try:
+            fans = nvmlDeviceGetFanSpeedRPM(handle)
+            formatted["gpus"][order]["fanSpeed"] = fans
+            #min
+            #max
+        except NVMLError:
+            pass
+        try:
+            power = nvmlDeviceGetPowerUsage(handle)
+        except NVMLError:
+            power = 0
+        formatted["gpus"][order]["power"] = power
         formatted["ram"]["inUse"] = psutil.virtual_memory().used / 1024 / 1024
-        #await check_curves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])
+        await check_curves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])
         await asyncio.sleep(1)
+        # This is a very latency expensive option
+        #try:
+        #    stats = await lcd.get_stats()
+        #    formatted["kraken"]["liquidTemperature"] = stats["liquid"]
+        #    formatted["cpus"][0]["fanSpeed"] = stats["fan_speed"]
+        #except Exception:
+        #    pass
 
 # Modified from liquidctl yoda
 async def update_duty(channel, temp, critical_temp):
