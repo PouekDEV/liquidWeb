@@ -1,6 +1,6 @@
 [Unit]
 Description=liquidWeb Full
-Requires=liquidWeb-integration-runner.service liquidWeb-frame-receiver.service liquidWeb-hardware-server.service
+Requires=liquidWeb-integration-runner.service liquidWeb-frame-writer.service liquidWeb-hardware-server.service
 After=network.target
 
 [Install]

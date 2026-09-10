@@ -6,13 +6,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
             - name: setup python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v7
               with:
                 python-version: 3.12
             - name: setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v7
               with:
                 cache-dependency-path: integration-runner/package-lock.json
                 node-version: 22.1
@@ -28,7 +28,7 @@ jobs:
                 npm i
             - name: build
               run: |
-                pyinstaller framereceiver.py --onedir --name=frame-receiver
+                pyinstaller framewriter.py --onedir --name=frame-writer
                 pyinstaller hardwareserver.py --onedir --name=hardware-server
                 cd integration-runner
                 npm run package
@@ -37,12 +37,13 @@ jobs:
                 mkdir -p dist/liquidWeb
                 mkdir -p dist/liquidWeb/bin
                 mkdir -p dist/liquidWeb/systemd
-                mv dist/frame-receiver dist/liquidWeb/bin/
+                mv dist/frame-writer dist/liquidWeb/bin/
                 mv dist/hardware-server dist/liquidWeb/bin/
                 mv integration-runner/out/integration-runner-linux-x64 dist/liquidWeb/integration-runner
                 cp systemd/*.service dist/liquidWeb/systemd/
                 cp systemd/*.target dist/liquidWeb/systemd/
                 cp 99-liquidWeb.rules dist/liquidWeb/
+                cp liquidWeb-configure-integration.sh dist/liquidWeb/bin/
             - name: prepare rpm sources
               run: |
                 VERSION=$(rpmspec -q --qf '%{version}' liquidWeb.spec)
@@ -54,7 +55,7 @@ jobs:
                 rpmbuild \
                     --define "_topdir $(pwd)/rpmbuild" \
                     -ba liquidWeb.spec
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v7
               with:
                 name: liquidWeb-rpm
                 path: rpmbuild/RPMS/**/*.rpm

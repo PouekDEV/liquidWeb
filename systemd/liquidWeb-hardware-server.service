@@ -1,8 +1,8 @@
 [Unit]
 Description=liquidWeb Hardware Server
-After=liquidWeb-frame-receiver.service
-Requires=liquidWeb-frame-receiver.service
-PartOf=liquidWeb-frame-receiver.service
+After=liquidWeb-frame-writer.service
+Requires=liquidWeb-frame-writer.service
+PartOf=liquidWeb-frame-writer.service liquidWeb.target
 
 [Service]
 User=liquidWeb

@@ -75,7 +75,7 @@ function createWS(url){
     function connect(){
         ws = new WebSocket(url);
         ws.on("open", () => {
-            console.log("[INTEGRATION-RUNNER] Connected to frame receiver");
+            console.log("[INTEGRATION-RUNNER] Connected to frame writer");
         });
         ws.on("close", () => {
             console.log("[INTEGRATION-RUNNER] Server closed. Retrying in 5 seconds...");

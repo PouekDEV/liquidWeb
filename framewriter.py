@@ -25,7 +25,7 @@ class FrameWriter:
             pass
 
 async def handle_connection(websocket):
-    print("[FRAME-RECEIVER] Connected to integration runner")
+    print("[FRAME-WRITER] Connected to integration runner")
     try:
         async for message in websocket:
             try:
@@ -34,21 +34,21 @@ async def handle_connection(websocket):
                 if frame_buffer.full():
                     _ = frame_buffer.get_nowait()
                 await frame_buffer.put(frame)
-                #print(f"[FRAME-RECEIVER] Queue size: {frameBuffer.qsize()}")
+                #print(f"[FRAME-WRITER] Queue size: {frameBuffer.qsize()}")
             except Exception as e:
-                print(f"[FRAME-RECEIVER] Encountered an error while getting a response: {e}")
+                print(f"[FRAME-WRITER] Encountered an error while getting a response: {e}")
     except Exception as e:
-        print(f"[FRAME-RECEIVER] Encountered an error during connection: {e}")
+        print(f"[FRAME-WRITER] Encountered an error during connection: {e}")
 
 async def run():
-    print(f"[FRAME-RECEIVER] Starting WebSocket server on ws://localhost:{PORT}")
+    print(f"[FRAME-WRITER] Starting WebSocket server on ws://localhost:{PORT}")
     async with websockets.serve(handle_connection, "127.0.0.1", PORT):
         await asyncio.Future()
 
 async def run_XMLRPC_server():
     server = SimpleXMLRPCServer(("localhost", PORT + 2), allow_none=True)
     server.register_function(set_fixed_speed)
-    print(f"[FRAME-RECEIVER] Hosting device handle on port {PORT + 2}")
+    print(f"[FRAME-WRITER] Hosting device handle on port {PORT + 2}")
     await server.serve_forever()
 
 async def main(LCD):
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         orientation = int(sys.argv[2])
         PORT = int(sys.argv[3])
     else:
-        print("[FRAME-RECEIVER] Brightness, orientation and port hasn't been provided")
+        print("[FRAME-WRITER] Brightness, orientation and port hasn't been provided")
         sys.exit()
-    print(f"[FRAME-RECEIVER] Initiating connection with {brightness}% brightness and orientation of {orientation}°")
+    print(f"[FRAME-WRITER] Initiating connection with {brightness}% brightness and orientation of {orientation}°")
     asyncio.run(main(driver.KrakenLCD(brightness, orientation)))

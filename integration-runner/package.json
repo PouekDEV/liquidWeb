@@ -25,5 +25,5 @@
     "make": "electron-forge make"
   },
   "author": "PouekDEV",
-  "license": "MIT"
+  "license": "GPL-3.0"
 }
