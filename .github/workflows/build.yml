@@ -43,7 +43,7 @@ jobs:
                 cp systemd/*.service dist/liquidWeb/systemd/
                 cp systemd/*.target dist/liquidWeb/systemd/
                 cp 99-liquidWeb.rules dist/liquidWeb/
-                cp liquidWeb-configure-integration.sh dist/liquidWeb/bin/
+                cp liquidWeb-configure-integration.sh dist/liquidWeb/
             - name: prepare rpm sources
               run: |
                 VERSION=$(rpmspec -q --qf '%{version}' liquidWeb.spec)
