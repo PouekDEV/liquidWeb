@@ -106,7 +106,7 @@ function createWindow(){
         autoHideMenuBar: true,
         show: configuration,
         webPreferences: {
-            devTools: false,
+            devTools: configuration,
             offscreen: !configuration,
             preload: path.join(__dirname, "nzxt_data_api.js")
         }
