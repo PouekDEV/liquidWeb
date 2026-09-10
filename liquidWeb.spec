@@ -46,16 +46,17 @@ mkdir -p %{buildroot}/etc/udev/rules.d
 cp -a bin/frame-writer %{buildroot}/usr/lib/liquidWeb/
 cp -a bin/hardware-server %{buildroot}/usr/lib/liquidWeb/
 cp -a integration-runner %{buildroot}/usr/lib/liquidWeb/
+cp -a liquidWeb-configure-integration.sh %{buildroot}/usr/lib/liquidWeb/
 
 install -p -m 644 systemd/*.service %{buildroot}/usr/lib/systemd/system/
 install -p -m 644 systemd/*.target  %{buildroot}/usr/lib/systemd/system/
 install -p -m 644 99-liquidWeb.rules %{buildroot}/etc/udev/rules.d/
-install -p -m 555 liquidWeb-configure-integration.sh %{buildroot}/usr/lib/liquidWeb/
 
 %post
 semanage fcontext -a -t bin_t "/usr/lib/liquidWeb(/.*)?" 2>/dev/null || :
 restorecon -R /usr/lib/liquidWeb || :
 udevadm control --reload && udevadm trigger || :
+chmod +x /usr/lib/liquidWeb/liquidWeb-configure-integration.sh
 ln /usr/lib/liquidWeb/liquidWeb-configure-integration.sh /usr/bin/liquidWeb-configure-integration
 systemctl daemon-reload
 systemctl enable liquidWeb.target || true
