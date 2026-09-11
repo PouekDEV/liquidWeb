@@ -1,6 +1,9 @@
+import re
+import subprocess
+
 # Gracefully taken from liquidctl
 
-def normalizeProfile(profile, critx, max_value=100):
+def normalize_profile(profile, critx, max_value=100):
     profile = sorted(list(profile) + [(critx, max_value)], key=lambda p: (p[0], -p[1]))
     mono = profile[0:1]
     for (x, y), (xb, yb) in zip(profile[1:], profile[:-1]):
@@ -13,7 +16,7 @@ def normalizeProfile(profile, critx, max_value=100):
             break
     return mono
 
-def interpolateProfile(profile, x):
+def interpolate_profile(profile, x):
     lower, upper = profile[0], profile[-1]
     for step in profile:
         if step[0] <= x:
@@ -30,3 +33,38 @@ def clamp(value, clampmin, clampmax):
     return clamped
 
 # ---
+
+def cpu_vendor_and_model_name():
+    vendor_id = ""
+    model_name = ""
+    with open("/proc/cpuinfo", "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if "vendor_id" in line:
+                vendor_id = re.sub(".*vendor_id.*: ", "", line).replace("\n","")
+            if "model name" in line:
+                model_name = re.sub(".*model name.*: ", "", line).replace("\n","")
+                break
+    return (vendor_id, model_name)
+
+def get_video_adapters():
+    return subprocess.check_output("lspci -k | grep -EA3 'VGA|3D|Display'", shell=True, text=True)
+
+def get_intel_integrated_graphics_name():
+    if intel_integrated_graphics_present():
+        adapters = get_video_adapters()
+        place = adapters.find("[")
+        intel = adapters[place + 1:]
+        intel = intel.split("]")[0]
+        return intel
+    return None
+
+def intel_integrated_graphics_present():
+    if "Intel" in get_video_adapters():
+        return True
+    return False
+
+def is_nvidia_present():
+    if "NVIDIA" in get_video_adapters():
+        return True
+    return False

@@ -1,0 +1,8 @@
+# Rules taken and adapted from liquidctl
+#
+# NZXT Kraken 2023 Elite (broken)
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1e71", ATTRS{idProduct}=="300c", MODE="0660", GROUP="liquidWeb"
+# NZXT Kraken Z (Z53, Z63 or Z73)
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1e71", ATTRS{idProduct}=="3008", MODE="0660", GROUP="liquidWeb"
+# NZXT Kraken 2024 Elite RGB
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1e71", ATTRS{idProduct}=="3012", MODE="0660", GROUP="liquidWeb"

@@ -1,0 +1,96 @@
+Name:           liquidWeb
+Version:        1.0.0
+Release:        1%{?dist}
+Summary:        liquidWeb hardware integration stack
+
+License:        GPL-3.0
+URL:            https://github.com/PouekDEV/liquidWeb
+Source0:        %{name}-%{version}.tar.gz
+
+AutoReqProv:    no
+BuildArch:      x86_64
+Requires:       systemd
+Requires:       xorg-x11-server-Xvfb
+Requires:       /usr/bin/udevadm
+Requires:       policycoreutils-python-utils
+Requires(pre):  shadow-utils
+
+%description
+NZXT CAM replacement for liquid coolers on Linux.
+
+Supported devices:
+ - NZXT Kraken 2023 Elite
+ - NZXT Kraken Z3
+
+Services are managed via systemd using liquidWeb.target.
+
+%prep
+%autosetup
+
+%pre
+getent group liquidWeb >/dev/null || groupadd -r liquidWeb
+getent passwd liquidWeb >/dev/null || \
+    useradd -r -g liquidWeb -d /var/lib/liquidWeb -s /sbin/nologin \
+    -c "liquidWeb system user" liquidWeb
+exit 0
+
+%build
+# Nothing to build
+
+%install
+mkdir -p %{buildroot}/usr/lib/liquidWeb
+mkdir -p %{buildroot}/usr/lib/systemd/system
+mkdir -p %{buildroot}/var/lib/liquidWeb
+mkdir -p %{buildroot}/etc/udev/rules.d
+
+cp -a bin/frame-writer %{buildroot}/usr/lib/liquidWeb/
+cp -a bin/hardware-server %{buildroot}/usr/lib/liquidWeb/
+cp -a integration-runner %{buildroot}/usr/lib/liquidWeb/
+
+install -p -m 644 systemd/*.service %{buildroot}/usr/lib/systemd/system/
+install -p -m 644 systemd/*.target  %{buildroot}/usr/lib/systemd/system/
+install -p -m 644 99-liquidWeb.rules %{buildroot}/etc/udev/rules.d/
+install -p -m 755 liquidWeb-configure-integration.sh %{buildroot}/usr/lib/liquidWeb/
+
+%post
+semanage fcontext -a -t bin_t "/usr/lib/liquidWeb(/.*)?" 2>/dev/null || :
+restorecon -R /usr/lib/liquidWeb || :
+udevadm control --reload && udevadm trigger || :
+ln /usr/lib/liquidWeb/liquidWeb-configure-integration.sh /usr/bin/liquidWeb-configure-integration
+systemctl daemon-reload
+systemctl enable liquidWeb.target || true
+systemctl start liquidWeb.target
+
+%preun
+if [ $1 -eq 0 ]; then
+    systemctl disable liquidWeb.target || true
+    systemctl stop liquidWeb.target || true
+    rm /usr/bin/liquidWeb-configure-integration
+fi
+
+%postun
+if [ $1 -eq 0 ]; then
+    semanage fcontext -d "/usr/lib/liquidWeb(/.*)?" 2>/dev/null || :
+fi
+systemctl daemon-reload
+
+%files
+/usr/lib/liquidWeb/frame-writer/
+/usr/lib/liquidWeb/hardware-server/
+/usr/lib/liquidWeb/integration-runner/
+/usr/lib/liquidWeb/liquidWeb-configure-integration.sh
+
+/usr/lib/systemd/system/liquidWeb.target
+/usr/lib/systemd/system/liquidWeb-integration-runner.service
+/usr/lib/systemd/system/liquidWeb-frame-writer.service
+/usr/lib/systemd/system/liquidWeb-hardware-server.service
+
+%dir %attr(0755, liquidWeb, liquidWeb) /var/lib/liquidWeb
+%ghost %attr(0644, liquidWeb, liquidWeb) /var/lib/liquidWeb/curves.json
+%config(noreplace) /etc/udev/rules.d/99-liquidWeb.rules
+
+%changelog
+* Fri Sep 11 2026 PouekDEV <stuff@pouekdev.one> - 1.0.0-1
+- Full release
+* Thu Sep 10 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
+- Testing release before full hardware server implementation

@@ -1,0 +1,7 @@
+[Unit]
+Description=liquidWeb Full
+Requires=liquidWeb-integration-runner.service liquidWeb-frame-writer.service liquidWeb-hardware-server.service
+After=network.target
+
+[Install]
+WantedBy=multi-user.target
