@@ -34,7 +34,7 @@ async def handle_connection(websocket):
                 if frame_buffer.full():
                     _ = frame_buffer.get_nowait()
                 await frame_buffer.put(frame)
-                #print(f"[FRAME-WRITER] Queue size: {frameBuffer.qsize()}")
+                #print(f"[FRAME-WRITER] Queue size: {frame_buffer.qsize()}")
             except Exception as e:
                 print(f"[FRAME-WRITER] Encountered an error while getting a response: {e}")
     except Exception as e:

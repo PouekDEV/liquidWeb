@@ -30,7 +30,7 @@ formatted = {
             "load": psutil.cpu_percent() / 100,
             "numCores": psutil.cpu_count(logical=False),
             "numThreads": psutil.cpu_count(),
-            "temperature": psutil.sensors_temperatures()["coretemp"][0].current,
+            "temperature": 0,
             "minTemperature": 0,
             "maxTemperature": 0,
             "frequency": psutil.cpu_freq()[0],
@@ -55,7 +55,7 @@ formatted = {
     }
 }
 lcd = None
-config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0}
+config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0, "cpu_temp_chip": "", "cpu_temp_chip_psutil_order": 0}
 duty_sensors = ["cpu", "gpu", "liquid"]
 file_path = "/var/lib/liquidWeb"
 cpu_temps = [0] * 4
@@ -81,13 +81,28 @@ gpu = {
 }
 if intel_integrated:
     formatted["gpus"].append(copy.copy(gpu))
+gpu["minFanSpeed"] = -1
 formatted["gpus"].append(gpu)
+
+async def update_kraken():
+    while True:
+        # This is a very latency expensive option that's why we do it every 10 seconds
+        try:
+            stats = await lcd.get_stats()
+            formatted["kraken"]["liquidTemperature"] = stats["liquid"]
+            formatted["cpus"][0]["fanSpeed"] = stats["fan_speed"]
+        except Exception:
+            pass
+        await asyncio.sleep(10)
 
 async def update_info():
     while True:
         # Nobody has more than one CPU right?
         formatted["cpus"][0]["load"] = psutil.cpu_percent() / 100
-        formatted["cpus"][0]["temperature"] = float(psutil.sensors_temperatures()["coretemp"][0].current)
+        try:
+            formatted["cpus"][0]["temperature"] = float(psutil.sensors_temperatures()[config["cpu_temp_chip"]][config["cpu_temp_chip_psutil_order"]].current)
+        except KeyError:
+            pass
         if formatted["cpus"][0]["temperature"] < formatted["cpus"][0]["minTemperature"] or formatted["cpus"][0]["minTemperature"] == 0:
             formatted["cpus"][0]["minTemperature"] = formatted["cpus"][0]["temperature"]
         if formatted["cpus"][0]["temperature"] > formatted["cpus"][0]["maxTemperature"]:
@@ -105,7 +120,7 @@ async def update_info():
         # We don't check for more than one GPU
         handle = nvmlDeviceGetHandleByIndex(0)
         formatted["gpus"][order]["name"] = nvmlDeviceGetName(handle)
-        formatted["gpus"][order]["load"] = nvmlDeviceGetUtilizationRates(handle).gpu
+        formatted["gpus"][order]["load"] = float(nvmlDeviceGetUtilizationRates(handle).gpu)
         formatted["gpus"][order]["temperature"] = float(nvmlDeviceGetTemperatureV(handle, 0))
         if formatted["gpus"][order]["temperature"] < formatted["gpus"][order]["minTemperature"] or formatted["gpus"][order]["minTemperature"] == 0:
             formatted["gpus"][order]["minTemperature"] = formatted["gpus"][order]["temperature"]
@@ -118,25 +133,20 @@ async def update_info():
         try:
             fans = nvmlDeviceGetFanSpeedRPM(handle)
             formatted["gpus"][order]["fanSpeed"] = fans
-            #min
-            #max
+            if formatted["gpus"][order]["fanSpeed"] < formatted["gpus"][order]["minFanSpeed"] or formatted["gpus"][order]["minFanSpeed"] == -1:
+                formatted["gpus"][order]["minFanSpeed"] = formatted["gpus"][order]["fanSpeed"]
+            if formatted["gpus"][order]["fanSpeed"] > formatted["gpus"][order]["maxFanSpeed"]:
+                formatted["gpus"][order]["maxFanSpeed"] = formatted["gpus"][order]["fanSpeed"]
         except NVMLError:
             pass
         try:
-            power = nvmlDeviceGetPowerUsage(handle)
+            power = nvmlDeviceGetPowerUsage(handle) / 1000
         except NVMLError:
             power = 0
         formatted["gpus"][order]["power"] = power
         formatted["ram"]["inUse"] = psutil.virtual_memory().used / 1024 / 1024
         await check_curves(formatted["cpus"][config["cpu"]]["temperature"], formatted["gpus"][config["gpu"]]["temperature"], formatted["kraken"]["liquidTemperature"])
         await asyncio.sleep(1)
-        # This is a very latency expensive option
-        #try:
-        #    stats = await lcd.get_stats()
-        #    formatted["kraken"]["liquidTemperature"] = stats["liquid"]
-        #    formatted["cpus"][0]["fanSpeed"] = stats["fan_speed"]
-        #except Exception:
-        #    pass
 
 # Modified from liquidctl yoda
 async def update_duty(channel, temp, critical_temp):
@@ -202,7 +212,8 @@ async def run_server():
 async def run():
     global lcd
     asyncio.create_task(update_info())
-    lcd = ServerProxy(f"http://localhost:{PORT + 1}")
+    asyncio.create_task(update_kraken())
+    lcd = ServerProxy(f"http://localhost:{PORT + 1}", timeout=None)
     print(f"[HARDWARE-SERVER] Grabbing device handle from port {PORT + 1}")
     await run_server()
     await asyncio.Future()

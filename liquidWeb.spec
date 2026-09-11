@@ -1,5 +1,5 @@
 Name:           liquidWeb
-Version:        0.9.0
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        liquidWeb hardware integration stack
 
@@ -90,5 +90,7 @@ systemctl daemon-reload
 %config(noreplace) /etc/udev/rules.d/99-liquidWeb.rules
 
 %changelog
+* Fri Sep 11 2026 PouekDEV <stuff@pouekdev.one> - 1.0.0-1
+- Full release
 * Thu Sep 10 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
 - Testing release before full hardware server implementation
