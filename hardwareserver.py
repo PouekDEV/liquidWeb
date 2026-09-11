@@ -55,7 +55,7 @@ formatted = {
     }
 }
 lcd = None
-config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0, "cpu_temp_chip": "", "cpu_temp_chip_psutil_order": 0}
+config = {"fan": [], "pump": [], "fan_sensor": "", "pump_sensor": "", "cpu": 0, "gpu": 0, "cpu_temp_chip": ""}
 duty_sensors = ["cpu", "gpu", "liquid"]
 file_path = "/var/lib/liquidWeb"
 cpu_temps = [0] * 4
@@ -100,7 +100,12 @@ async def update_info():
         # Nobody has more than one CPU right?
         formatted["cpus"][0]["load"] = psutil.cpu_percent() / 100
         try:
-            formatted["cpus"][0]["temperature"] = float(psutil.sensors_temperatures()[config["cpu_temp_chip"]][config["cpu_temp_chip_psutil_order"]].current)
+            sensors = psutil.sensors_temperatures()[config["cpu_temp_chip"]]
+            sum = 0
+            for core in sensors:
+                sum += core.current
+            average = sum / len(sensors)
+            formatted["cpus"][0]["temperature"] = average
         except KeyError:
             pass
         if formatted["cpus"][0]["temperature"] < formatted["cpus"][0]["minTemperature"] or formatted["cpus"][0]["minTemperature"] == 0:
