@@ -1,5 +1,5 @@
 Name:           liquidWeb
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        liquidWeb hardware integration stack
 
@@ -90,6 +90,8 @@ systemctl daemon-reload
 %config(noreplace) /etc/udev/rules.d/99-liquidWeb.rules
 
 %changelog
+* Mon Oct 26 2026 PouekDEV <stuff@pouekdev.one> - 1.0.1-1
+- Make integration runner properly wait for connection before starting
 * Fri Sep 11 2026 PouekDEV <stuff@pouekdev.one> - 1.0.0-1
 - Full release
 * Thu Sep 10 2026 PouekDEV <stuff@pouekdev.one> - 0.9.0-1
