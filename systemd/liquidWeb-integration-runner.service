@@ -1,6 +1,7 @@
 [Unit]
 Description=liquidWeb Integration Runner
-After=network.target
+Wants=network-online.target
+After=network.target network-online.target
 PartOf=liquidWeb.target
 
 [Service]
